@@ -1,0 +1,216 @@
+// Jenkinsfile
+// ─────────────────────────────────────────────────────────────────────────────
+// FlowGuard AI – CI/CD Pipeline
+//
+// This Jenkinsfile defines a declarative pipeline with 6 stages:
+//   1. Checkout      – pull source code from Git
+//   2. Setup         – create virtual environment and install dependencies
+//   3. Test          – run unit tests with pytest
+//   4. Generate Data – create synthetic dataset
+//   5. Train Model   – baseline + AutoML training with MLflow logging
+//   6. Deploy        – serve the model via BentoML
+//
+// Prerequisites on Jenkins agent:
+//   - Python 3.10+ installed
+//   - MLflow server running at http://mlflow-server:5000
+//   - Agent label: 'ml-agent'
+//
+// This file is for DESIGN DEMONSTRATION purposes (college MVP).
+// No actual Jenkins server is required to view or present this pipeline.
+// ─────────────────────────────────────────────────────────────────────────────
+
+pipeline {
+
+    // Run on any agent labeled 'ml-agent' (or 'any' for local testing)
+    agent { label 'ml-agent' }
+
+    // ── Environment variables ─────────────────────────────────────────────────
+    environment {
+        APP_NAME        = "flowguard-ai"
+        PYTHON_BIN      = "python3"
+        VENV_DIR        = ".venv"
+        MLFLOW_TRACKING = "http://mlflow-server:5000"
+        BENTO_PORT      = "3000"
+        MODEL_DIR       = "models"
+    }
+
+    // ── Pipeline options ──────────────────────────────────────────────────────
+    options {
+        timeout(time: 45, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+    }
+
+    // ── Trigger: build on every push to main or develop branch ───────────────
+    triggers {
+        githubPush()
+    }
+
+    stages {
+
+        // ── STAGE 1: Checkout ─────────────────────────────────────────────────
+        stage('Checkout') {
+            steps {
+                echo '📥  Checking out source code…'
+                checkout scm
+                sh 'git log --oneline -5'   // show last 5 commits for audit trail
+            }
+        }
+
+        // ── STAGE 2: Setup Environment ────────────────────────────────────────
+        stage('Setup Environment') {
+            steps {
+                echo '🐍  Setting up Python virtual environment…'
+                sh """
+                    ${PYTHON_BIN} -m venv ${VENV_DIR}
+                    . ${VENV_DIR}/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                    echo '✅  Dependencies installed'
+                    pip list | head -30
+                """
+            }
+        }
+
+        // ── STAGE 3: Run Tests ────────────────────────────────────────────────
+        stage('Test') {
+            steps {
+                echo '🧪  Running unit tests…'
+                sh """
+                    . ${VENV_DIR}/bin/activate
+                    pytest tests/ -v \
+                        --tb=short \
+                        --junitxml=test-results.xml \
+                        --cov=app \
+                        --cov-report=xml:coverage.xml \
+                        --cov-report=term-missing
+                """
+            }
+            post {
+                always {
+                    // Archive test results in Jenkins UI
+                    junit 'test-results.xml'
+                    publishCoverage adapters: [coberturaAdapter('coverage.xml')]
+                }
+                failure {
+                    echo '❌  Tests failed — aborting pipeline'
+                    error 'Unit tests did not pass'
+                }
+            }
+        }
+
+        // ── STAGE 4: Generate Dataset ─────────────────────────────────────────
+        stage('Generate Dataset') {
+            steps {
+                echo '📊  Generating synthetic SME dataset…'
+                sh """
+                    . ${VENV_DIR}/bin/activate
+                    ${PYTHON_BIN} ml/generate_dataset.py
+                    echo "Dataset rows: \$(wc -l < ml/dataset.csv)"
+                """
+            }
+        }
+
+        // ── STAGE 5: Train Model ──────────────────────────────────────────────
+        stage('Train Model') {
+            parallel {
+
+                // Baseline model (fast)
+                stage('Baseline Training') {
+                    steps {
+                        echo '🌲  Training baseline Random Forest model…'
+                        sh """
+                            . ${VENV_DIR}/bin/activate
+                            MLFLOW_TRACKING_URI=${MLFLOW_TRACKING} \
+                            ${PYTHON_BIN} ml/train.py
+                        """
+                    }
+                }
+
+                // AutoML (slower, runs alongside baseline)
+                stage('AutoML Training') {
+                    steps {
+                        echo '🤖  Running PyCaret AutoML…'
+                        sh """
+                            . ${VENV_DIR}/bin/activate
+                            MLFLOW_TRACKING_URI=${MLFLOW_TRACKING} \
+                            ${PYTHON_BIN} ml/automl.py
+                        """
+                    }
+                }
+            }
+
+            post {
+                success {
+                    echo '✅  Model training complete'
+                    archiveArtifacts artifacts: 'models/*.pkl', fingerprint: true
+                }
+                failure {
+                    echo '❌  Model training failed'
+                    error 'Training stage failed — check MLflow for details'
+                }
+            }
+        }
+
+        // ── STAGE 6: Deploy Service ───────────────────────────────────────────
+        stage('Deploy Service') {
+            when {
+                // Only deploy when on the main branch
+                branch 'main'
+            }
+            steps {
+                echo '🚀  Deploying FlowGuard AI via BentoML…'
+                sh """
+                    . ${VENV_DIR}/bin/activate
+
+                    # Register the model in BentoML store
+                    ${PYTHON_BIN} -c "
+from bentoml_service_register import register_model_in_bentoml
+register_model_in_bentoml()
+"
+
+                    # Build the Bento package
+                    bentoml build -f bentoml/bentofile.yaml
+
+                    # (Optional) Stop any running instance
+                    pkill -f 'bentoml serve' || true
+
+                    # Start the BentoML service in the background
+                    nohup bentoml serve flowguard_ai_service:latest \
+                        --port ${BENTO_PORT} \
+                        --workers 2 \
+                        > logs/bentoml.log 2>&1 &
+
+                    echo "✅  BentoML service started on port ${BENTO_PORT}"
+                    sleep 3
+                    curl -s http://localhost:${BENTO_PORT}/healthz || echo 'Health check pending...'
+                """
+            }
+        }
+
+    } // end stages
+
+    // ── Post-pipeline actions ─────────────────────────────────────────────────
+    post {
+        success {
+            echo """
+╔══════════════════════════════════════════╗
+║   FlowGuard AI Pipeline – SUCCESS ✅     ║
+║   FastAPI: http://localhost:8000/docs    ║
+║   BentoML: http://localhost:3000         ║
+║   MLflow:  http://localhost:5000         ║
+╚══════════════════════════════════════════╝
+"""
+        }
+        failure {
+            echo '❌  Pipeline FAILED — review the logs above'
+            // emailext body: 'FlowGuard AI build failed. Check Jenkins.',
+            //     subject: 'FlowGuard CI Failure',
+            //     to: 'devops@flowguard.ai'
+        }
+        always {
+            cleanWs()   // Clean workspace after every build
+        }
+    }
+
+} // end pipeline

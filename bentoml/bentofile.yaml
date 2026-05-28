@@ -1,0 +1,68 @@
+# bentofile.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+# BentoML Build Configuration for FlowGuard AI
+#
+# This file tells BentoML how to package the service into a deployable Bento.
+# A "Bento" is a self-contained bundle containing:
+#   - The service code
+#   - The trained model
+#   - All Python dependencies
+#   - Docker configuration
+#
+# Build the Bento:
+#   cd flowguard-ai
+#   bentoml build -f bentoml/bentofile.yaml
+#
+# Run the built Bento:
+#   bentoml serve flowguard_ai_service:latest --port 3000
+#
+# Containerize (requires Docker):
+#   bentoml containerize flowguard_ai_service:latest
+# ──────────────────────────────────────────────────────────────────────────────
+
+service: "bentoml/service.py:svc"   # path to the Service object
+
+name: flowguard-ai                   # Bento name
+version: "1.0.0"                     # Bento version (bump on each release)
+
+labels:
+  team: mlops
+  project: flowguard-ai
+  environment: production
+
+description: |
+  FlowGuard AI – SME Cash Flow Risk Prediction Service.
+  Classifies business financial data into Low / Medium / High risk categories
+  using a trained scikit-learn model served via BentoML.
+
+# ── Python dependencies ───────────────────────────────────────────────────────
+python:
+  packages:
+    - scikit-learn>=1.3.0
+    - numpy>=1.24.0
+    - pandas>=2.0.0
+    - pydantic>=2.0.0
+    - fastapi>=0.104.0
+
+  # Optionally point to a requirements.txt:
+  # requirements_txt: ../requirements.txt
+
+# ── Include extra files needed by the service ─────────────────────────────────
+include:
+  - "bentoml/service.py"
+  - "models/saved_model.pkl"
+  - "models/scaler.pkl"
+  - "models/label_encoder.pkl"
+  - "app/model.py"
+  - "app/schemas.py"
+  - "app/__init__.py"
+
+# ── Docker image configuration ────────────────────────────────────────────────
+docker:
+  python_version: "3.10"
+  distro: debian
+  system_packages:
+    - libgomp1    # required for LightGBM / XGBoost on Linux
+  env:
+    - PYTHONUNBUFFERED=1
+    - LOG_LEVEL=INFO

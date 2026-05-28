@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FlowGuard AI – requirements.txt
+# ─────────────────────────────────────────────────────────────────────────────
+# Install all dependencies with:
+#   pip install -r requirements.txt
+#
+# Python version: 3.10 or 3.11 recommended
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Web Framework ─────────────────────────────────────────────────────────────
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0          # ASGI server for FastAPI
+pydantic>=2.0.0                    # Data validation
+
+# ── Machine Learning (Baseline) ───────────────────────────────────────────────
+scikit-learn>=1.3.0                # Random Forest + preprocessing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# ── AutoML ────────────────────────────────────────────────────────────────────
+pycaret[full]>=3.1.0               # AutoML: compares 15+ models automatically
+# Note: pycaret installs lightgbm, xgboost, catboost etc. automatically
+
+# ── MLOps / Experiment Tracking ───────────────────────────────────────────────
+mlflow>=2.8.0                      # Experiment tracking & model registry
+
+# ── Model Serving ────────────────────────────────────────────────────────────
+bentoml>=1.2.0                     # Model packaging and serving
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest>=7.4.0
+pytest-cov>=4.1.0                  # Code coverage reports
+httpx>=0.25.0                      # Required by FastAPI TestClient
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-multipart>=0.0.6            # File upload support in FastAPI
