@@ -22,7 +22,7 @@
 pipeline {
 
     // Run on any agent labeled 'ml-agent' (or 'any' for local testing)
-    agent { label 'ml-agent' }
+    agent any
 
     // ── Environment variables ─────────────────────────────────────────────────
     environment {
