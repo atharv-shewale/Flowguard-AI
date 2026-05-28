@@ -27,7 +27,7 @@ pipeline {
     // ── Environment variables ─────────────────────────────────────────────────
     environment {
         APP_NAME        = "flowguard-ai"
-        PYTHON_BIN      = "python3"
+        PYTHON_BIN      = "python"
         VENV_DIR        = ".venv"
         MLFLOW_TRACKING = "http://mlflow-server:5000"
         BENTO_PORT      = "3000"
