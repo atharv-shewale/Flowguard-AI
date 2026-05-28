@@ -51,23 +51,22 @@ pipeline {
         // ── STAGE 1: Checkout ─────────────────────────────────────────────────
         stage('Checkout') {
             steps {
-                echo '📥  Checking out source code…'
+                echo 'Checking out source code...'
                 checkout scm
-                sh 'git log --oneline -5'   // show last 5 commits for audit trail
+                bat 'git log --oneline -5'
             }
         }
 
         // ── STAGE 2: Setup Environment ────────────────────────────────────────
         stage('Setup Environment') {
             steps {
-                echo '🐍  Setting up Python virtual environment…'
-                sh """
+                echo 'Setting up Python virtual environment...'
+                bat """
                     ${PYTHON_BIN} -m venv ${VENV_DIR}
-                    . ${VENV_DIR}/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    echo '✅  Dependencies installed'
-                    pip list | head -30
+                    call ${VENV_DIR}\\Scripts\\activate.bat
+                    python -m pip install --upgrade pip
+                    python -m pip install -r requirements.txt
+                    echo Dependencies installed
                 """
             }
         }
@@ -75,25 +74,17 @@ pipeline {
         // ── STAGE 3: Run Tests ────────────────────────────────────────────────
         stage('Test') {
             steps {
-                echo '🧪  Running unit tests…'
-                sh """
-                    . ${VENV_DIR}/bin/activate
-                    pytest tests/ -v \
-                        --tb=short \
-                        --junitxml=test-results.xml \
-                        --cov=app \
-                        --cov-report=xml:coverage.xml \
-                        --cov-report=term-missing
+                echo 'Running unit tests...'
+                bat """
+                    call ${VENV_DIR}\\Scripts\\activate.bat
+                    pytest tests/ -v --tb=short --junitxml=test-results.xml
                 """
             }
             post {
                 always {
-                    // Archive test results in Jenkins UI
                     junit 'test-results.xml'
-                    publishCoverage adapters: [coberturaAdapter('coverage.xml')]
                 }
                 failure {
-                    echo '❌  Tests failed — aborting pipeline'
                     error 'Unit tests did not pass'
                 }
             }
@@ -102,52 +93,28 @@ pipeline {
         // ── STAGE 4: Generate Dataset ─────────────────────────────────────────
         stage('Generate Dataset') {
             steps {
-                echo '📊  Generating synthetic SME dataset…'
-                sh """
-                    . ${VENV_DIR}/bin/activate
-                    ${PYTHON_BIN} ml/generate_dataset.py
-                    echo "Dataset rows: \$(wc -l < ml/dataset.csv)"
+                echo 'Generating synthetic SME dataset...'
+                bat """
+                    call ${VENV_DIR}\\Scripts\\activate.bat
+                    python ml/generate_dataset.py
                 """
             }
         }
 
         // ── STAGE 5: Train Model ──────────────────────────────────────────────
         stage('Train Model') {
-            parallel {
-
-                // Baseline model (fast)
-                stage('Baseline Training') {
-                    steps {
-                        echo '🌲  Training baseline Random Forest model…'
-                        sh """
-                            . ${VENV_DIR}/bin/activate
-                            MLFLOW_TRACKING_URI=${MLFLOW_TRACKING} \
-                            ${PYTHON_BIN} ml/train.py
-                        """
-                    }
-                }
-
-                // AutoML (slower, runs alongside baseline)
-                stage('AutoML Training') {
-                    steps {
-                        echo '🤖  Running PyCaret AutoML…'
-                        sh """
-                            . ${VENV_DIR}/bin/activate
-                            MLFLOW_TRACKING_URI=${MLFLOW_TRACKING} \
-                            ${PYTHON_BIN} ml/automl.py
-                        """
-                    }
-                }
+            steps {
+                echo 'Training baseline Random Forest model...'
+                // Running just baseline for the Windows local pipeline to save time
+                bat """
+                    call ${VENV_DIR}\\Scripts\\activate.bat
+                    set PYTHONUTF8=1
+                    python ml/train.py
+                """
             }
-
             post {
                 success {
-                    echo '✅  Model training complete'
                     archiveArtifacts artifacts: 'models/*.pkl', fingerprint: true
-                }
-                failure {
-                    echo '❌  Model training failed'
-                    error 'Training stage failed — check MLflow for details'
                 }
             }
         }
@@ -155,35 +122,13 @@ pipeline {
         // ── STAGE 6: Deploy Service ───────────────────────────────────────────
         stage('Deploy Service') {
             when {
-                // Only deploy when on the main branch
                 branch 'main'
             }
             steps {
-                echo '🚀  Deploying FlowGuard AI via BentoML…'
-                sh """
-                    . ${VENV_DIR}/bin/activate
-
-                    # Register the model in BentoML store
-                    ${PYTHON_BIN} -c "
-from bentoml_service_register import register_model_in_bentoml
-register_model_in_bentoml()
-"
-
-                    # Build the Bento package
-                    bentoml build -f bentoml/bentofile.yaml
-
-                    # (Optional) Stop any running instance
-                    pkill -f 'bentoml serve' || true
-
-                    # Start the BentoML service in the background
-                    nohup bentoml serve flowguard_ai_service:latest \
-                        --port ${BENTO_PORT} \
-                        --workers 2 \
-                        > logs/bentoml.log 2>&1 &
-
-                    echo "✅  BentoML service started on port ${BENTO_PORT}"
-                    sleep 3
-                    curl -s http://localhost:${BENTO_PORT}/healthz || echo 'Health check pending...'
+                echo 'Deployment stage (Simulation for local Windows)'
+                bat """
+                    echo "In a real environment, BentoML would be started here."
+                    echo "For local Windows, please run '.\\run.ps1 bento' in your terminal."
                 """
             }
         }
