@@ -62,9 +62,9 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 echo 'Connecting to ML Compute Cluster...'
-                bat 'timeout /t 3 /nobreak >nul'
+                sleep time: 3, unit: 'SECONDS'
                 echo 'Provisioning Python 3.11 Environment...'
-                bat 'timeout /t 2 /nobreak >nul'
+                sleep time: 2, unit: 'SECONDS'
                 echo 'Dependencies installed successfully.'
             }
         }
@@ -73,7 +73,7 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running unit tests (PyTest)...'
-                bat 'timeout /t 4 /nobreak >nul'
+                sleep time: 4, unit: 'SECONDS'
                 echo '======================================'
                 echo '19/19 test cases PASSED. Code coverage: 95%'
                 echo '======================================'
@@ -84,7 +84,7 @@ pipeline {
         stage('Generate Dataset') {
             steps {
                 echo 'Generating synthetic SME dataset...'
-                bat 'timeout /t 2 /nobreak >nul'
+                sleep time: 2, unit: 'SECONDS'
                 echo 'Dataset rows: 1500 generated.'
             }
         }
@@ -93,7 +93,7 @@ pipeline {
         stage('Train Model') {
             steps {
                 echo 'Triggering MLflow remote training job...'
-                bat 'timeout /t 4 /nobreak >nul'
+                sleep time: 4, unit: 'SECONDS'
                 echo 'Training baseline Random Forest model...'
                 echo 'Model accuracy: 1.0000'
                 echo 'Model saved to MLflow registry (Run ID: a4e75acf15bd487fa).'
@@ -107,7 +107,7 @@ pipeline {
             }
             steps {
                 echo 'Deploying FlowGuard AI via BentoML...'
-                bat 'timeout /t 3 /nobreak >nul'
+                sleep time: 3, unit: 'SECONDS'
                 echo 'BentoML service successfully packaged.'
                 echo 'Service deployed to staging environment.'
             }
