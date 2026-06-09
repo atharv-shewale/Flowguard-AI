@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diabetes Progression Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-gradient: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: var(--bg-gradient);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-color);
+        }
+
+        .container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 90%;
+            margin: 2rem 0;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #1a202c;
+        }
+        
+        p.subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4a5568;
+            font-weight: 300;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+
+        input {
+            padding: 12px 16px;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05) inset;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .submit-btn {
+            grid-column: 1 / -1;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Disease Progression Predictor</h1>
+        <p class="subtitle">Enter the clinical features below to predict the diabetes progression metric.</p>
+        
+        <form action="/predict" method="POST">
+            <div class="form-group">
+                <label for="age">Age (scaled)</label>
+                <input type="number" step="any" id="age" name="age" required value="0.038">
+            </div>
+            <div class="form-group">
+                <label for="sex">Sex (scaled)</label>
+                <input type="number" step="any" id="sex" name="sex" required value="0.050">
+            </div>
+            <div class="form-group">
+                <label for="bmi">BMI (scaled)</label>
+                <input type="number" step="any" id="bmi" name="bmi" required value="0.061">
+            </div>
+            <div class="form-group">
+                <label for="bp">Blood Pressure (bp)</label>
+                <input type="number" step="any" id="bp" name="bp" required value="0.021">
+            </div>
+            <div class="form-group">
+                <label for="s1">Serum 1 (s1)</label>
+                <input type="number" step="any" id="s1" name="s1" required value="-0.044">
+            </div>
+            <div class="form-group">
+                <label for="s2">Serum 2 (s2)</label>
+                <input type="number" step="any" id="s2" name="s2" required value="-0.034">
+            </div>
+            <div class="form-group">
+                <label for="s3">Serum 3 (s3)</label>
+                <input type="number" step="any" id="s3" name="s3" required value="-0.043">
+            </div>
+            <div class="form-group">
+                <label for="s4">Serum 4 (s4)</label>
+                <input type="number" step="any" id="s4" name="s4" required value="-0.002">
+            </div>
+            <div class="form-group">
+                <label for="s5">Serum 5 (s5)</label>
+                <input type="number" step="any" id="s5" name="s5" required value="0.019">
+            </div>
+            <div class="form-group">
+                <label for="s6">Serum 6 (s6)</label>
+                <input type="number" step="any" id="s6" name="s6" required value="-0.017">
+            </div>
+            
+            <button type="submit" class="submit-btn">Predict Progression</button>
+        </form>
+    </div>
+</body>
+</html>

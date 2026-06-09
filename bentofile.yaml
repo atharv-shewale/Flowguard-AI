@@ -1,0 +1,11 @@
+service: "service:DiabetesService"
+labels:
+  owner: "mlops_team"
+  project: "diabetes_prediction"
+include:
+  - "*.py"
+python:
+  packages:
+    - scikit-learn==1.3.2
+    - bentoml==1.2.6
+    - flaml==2.1.2
