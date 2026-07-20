@@ -2,6 +2,8 @@
 
 This project is a full-stack Machine Learning application built using Flask, FastAPI, and MySQL, with MLOps tools integrated (Jenkins, BentoML, MLflow, and FLAML for AutoML). It predicts disease progression based on the scikit-learn `load_diabetes()` dataset.
 
+> Recommended runtime for deployment build: Python 3.11 (BentoML build supports 3.9-3.11 in this project setup).
+
 ## System Design
 
 1. **User Interface (Flask frontend)**: HTML forms styled with modern CSS (glassmorphism) accept 10 clinical features from the user.
@@ -73,7 +75,7 @@ bentoml build
    ```
 2. Build artifacts for deployment:
    ```bash
-   bash scripts/deploy_build.sh
+   PYTHON_BIN=python3.11 bash scripts/deploy_build.sh
    ```
 3. Run services (in separate terminals):
    ```bash

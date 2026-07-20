@@ -4,7 +4,7 @@ This guide will walk you through setting up and running the Advanced Web Develop
 
 ## Prerequisites
 Ensure the new PC has the following installed:
-1. **Python 3.9+**: Make sure Python is added to the system PATH.
+1. **Python 3.9-3.11**: Make sure Python is added to the system PATH.
 2. **Git**: To clone the repository.
 3. **MySQL Database**: E.g., through XAMPP or a standalone MySQL Server installation.
 
@@ -91,7 +91,7 @@ If you prefer running the steps manually (or are on Linux/Mac), execute the foll
    ```
 2. Build and package model artifacts:
    ```bash
-   bash scripts/deploy_build.sh
+   PYTHON_BIN=python3.11 bash scripts/deploy_build.sh
    ```
 3. Deploy/run services on your target host:
    - Flask UI: `python -m flask run --port=${FLASK_PORT:-5000}`

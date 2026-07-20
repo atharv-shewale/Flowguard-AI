@@ -23,6 +23,7 @@ def main():
             "time_budget": 15,  # 15 seconds budget for quick demonstration
             "metric": 'r2',
             "task": 'regression',
+            "estimator_list": ["lgbm", "rf", "extra_tree"],
             "log_file_name": 'diabetes_automl.log',
             "seed": 42
         }
