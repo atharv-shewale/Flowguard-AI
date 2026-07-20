@@ -3,6 +3,15 @@
 # FlowGuard AI – Render Deployment Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 # Docs: https://render.com/docs/blueprint-spec
+#
+# Deploys a single Docker-based web service that serves:
+#   GET  /       → Health check (JSON)
+#   GET  /ui     → Interactive frontend dashboard (HTML)
+#   GET  /docs   → Swagger API docs
+#   POST /predict-risk   → Single SME risk prediction
+#   POST /batch-predict  → Batch risk prediction
+#   GET  /model-info     → Model metadata & transparency
+# ─────────────────────────────────────────────────────────────────────────────
 
 services:
   - type: web
@@ -10,10 +19,13 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
 
+    # Deploy from the main branch
+    branch: main
+
     # Auto-deploy on every push to main branch
     autoDeploy: true
 
-    # Health check using your existing GET / endpoint
+    # Health check using GET / endpoint
     healthCheckPath: /
 
     # Environment variables
