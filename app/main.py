@@ -17,11 +17,13 @@ Run with:
 """
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 import time
 import logging
+import os
 
 from app.schemas import (
     BusinessFeatures,
@@ -70,6 +72,9 @@ app = FastAPI(
 ## FlowGuard AI
 
 A machine learning-powered platform that predicts cash-flow risk for Small and Medium Enterprises (SMEs).
+
+### 🖥️ Interactive Web UI Dashboard
+👉 **[Open FlowGuard AI Web UI Dashboard](/ui)** (Runs a complete visual interface with Form Presets, Single Risk Predictor, Portfolio Analyzer, and real-time model diagnostics)
 
 ### Risk Categories
 | Level  | Meaning                                     |
@@ -132,6 +137,28 @@ async def add_process_time(request: Request, call_next):
 # ROUTES
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── GET /ui ───────────────────────────────────────────────────────────────────
+@app.get(
+    "/ui",
+    response_class=HTMLResponse,
+    summary="Interactive Web UI Dashboard",
+    tags=["Interface"],
+)
+async def serve_ui():
+    """
+    Serves the beautiful interactive Single Page Application (SPA) dashboard.
+    Enables single SME cash-flow predictions, batch portfolio analyzer, and real-time model diagnostics.
+    """
+    ui_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "templates", "dashboard.html"
+    )
+    if not os.path.exists(ui_path):
+        raise HTTPException(status_code=404, detail="Dashboard UI template file not found")
+    with open(ui_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    return HTMLResponse(content=html_content, status_code=200)
+
+
 # ── GET / ─────────────────────────────────────────────────────────────────────
 @app.get(
     "/",
@@ -163,8 +190,61 @@ async def health_check():
         422: {"description": "Validation error – check input field types and ranges"},
         500: {"description": "Internal server error"},
     },
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "Low Risk – Solid Enterprises": {
+                            "summary": "Low Risk – financially healthy business",
+                            "value": {
+                                "monthly_revenue": 130000,
+                                "pending_invoices": 8000,
+                                "avg_payment_delay": 4,
+                                "monthly_expenses": 60000,
+                                "payroll_ratio": 0.22,
+                                "cash_reserve": 90000,
+                                "vendor_due_amount": 6000,
+                                "business_name": "Solid Enterprises Ltd",
+                                "business_id": "BIZ-001",
+                            },
+                        },
+                        "Medium Risk – Cape Town Bakery": {
+                            "summary": "Medium Risk – some concerns, monitoring needed",
+                            "value": {
+                                "monthly_revenue": 85000,
+                                "pending_invoices": 22000,
+                                "avg_payment_delay": 18,
+                                "monthly_expenses": 54000,
+                                "payroll_ratio": 0.38,
+                                "cash_reserve": 18000,
+                                "vendor_due_amount": 25000,
+                                "business_name": "Cape Town Bakery Pty Ltd",
+                                "business_id": "BIZ-002",
+                            },
+                        },
+                        "High Risk – Struggling Co": {
+                            "summary": "High Risk – urgent action required",
+                            "value": {
+                                "monthly_revenue": 28000,
+                                "pending_invoices": 55000,
+                                "avg_payment_delay": 45,
+                                "monthly_expenses": 38000,
+                                "payroll_ratio": 0.72,
+                                "cash_reserve": 3000,
+                                "vendor_due_amount": 48000,
+                                "business_name": "Struggling Co",
+                                "business_id": "BIZ-003",
+                            },
+                        },
+                    }
+                }
+            }
+        }
+    },
 )
 async def predict_risk(business: BusinessFeatures):
+
     """
     Predict the cash-flow risk level for a single SME business.
 
@@ -293,6 +373,30 @@ async def not_found_handler(request: Request, exc):
     return JSONResponse(
         status_code=404,
         content={"error": "Endpoint not found", "available_docs": "/docs"},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    Custom handler for 422 Validation Errors.
+    Returns a clean, human-readable error message listing the missing/invalid fields.
+    """
+    errors = []
+    for err in exc.errors():
+        field = " -> ".join(str(loc) for loc in err["loc"])
+        errors.append({
+            "field": field,
+            "issue": err["msg"],
+            "type":  err["type"],
+        })
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Request validation failed. Check all required fields are present and correctly typed.",
+            "hint": "Use the 'Try it out' button in Swagger UI (/docs) and select an example from the dropdown.",
+            "fields": errors,
+        },
     )
 
 

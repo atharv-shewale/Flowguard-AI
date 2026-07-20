@@ -219,3 +219,12 @@ class TestModelInfo:
         data = response.json()
         assert "feature_columns" in data
         assert len(data["feature_columns"]) == 7
+
+
+class TestUIDashboard:
+    def test_ui_returns_200_html(self):
+        response = client.get("/ui")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "FlowGuard AI" in response.text
+

@@ -1,18 +1,10 @@
 """
 service.py
 ----------
-BentoML Service for FlowGuard AI.
+BentoML Service for FlowGuard AI (BentoML 1.2+ / 1.4+ Class-based Syntax).
 
 BentoML packages the trained ML model into a self-contained, production-ready
-service that can be:
-  - Run locally:  bentoml serve bentoml/service.py:svc
-  - Built into a Docker image: bentoml build
-  - Deployed to BentoCloud or Kubernetes
-
-How it works:
-  1. We load the saved model using a BentoML Runner
-  2. We define a Service with a /predict endpoint
-  3. The service handles HTTP I/O, schema validation, and inference
+service.
 
 Run this service:
   cd flowguard-ai
@@ -24,7 +16,6 @@ import sys
 import pickle
 import numpy as np
 import bentoml
-from bentoml.io import JSON
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -42,75 +33,8 @@ MODEL_PATH   = os.path.join(MODELS_DIR, "saved_model.pkl")
 SCALER_PATH  = os.path.join(MODELS_DIR, "scaler.pkl")
 ENCODER_PATH = os.path.join(MODELS_DIR, "label_encoder.pkl")
 
-FEATURE_COLS = [
-    "monthly_revenue",
-    "pending_invoices",
-    "avg_payment_delay",
-    "monthly_expenses",
-    "payroll_ratio",
-    "cash_reserve",
-    "vendor_due_amount",
-]
-
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Register / retrieve the model in BentoML's local model store
-# ─────────────────────────────────────────────────────────────────────────────
-def register_model_in_bentoml():
-    """
-    Save the sklearn model into BentoML's model store (only once).
-    BentoML stores models in ~/.bentoml/models/ with versioning.
-    """
-    try:
-        # Check if already saved to avoid duplicate registration
-        bentoml.sklearn.get("flowguard_risk_model:latest")
-        print("ℹ️   Model already registered in BentoML store.")
-    except bentoml.exceptions.NotFound:
-        print("📦  Registering model in BentoML model store…")
-        with open(MODEL_PATH, "rb") as f:
-            sklearn_model = pickle.load(f)
-        bentoml.sklearn.save_model(
-            "flowguard_risk_model",
-            sklearn_model,
-            metadata={
-                "description": "FlowGuard AI – SME Cash Flow Risk Classifier",
-                "feature_columns": FEATURE_COLS,
-                "target_classes": ["High", "Low", "Medium"],
-            },
-        )
-        print("✅  Model registered as 'flowguard_risk_model:latest'")
-
-
-# Register the model when module loads
-register_model_in_bentoml()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Load supporting artifacts (scaler and encoder) globally
-# ─────────────────────────────────────────────────────────────────────────────
-with open(SCALER_PATH, "rb") as f:
-    _scaler = pickle.load(f)
-
-with open(ENCODER_PATH, "rb") as f:
-    _encoder = pickle.load(f)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# BentoML Runner – wraps the model for async/parallel inference
-# ─────────────────────────────────────────────────────────────────────────────
-# Runners allow BentoML to scale the model independently of the API layer.
-flowguard_runner = bentoml.sklearn.get("flowguard_risk_model:latest").to_runner()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# BentoML Service definition
-# ─────────────────────────────────────────────────────────────────────────────
-svc = bentoml.Service(
-    name="flowguard_ai_service",
-    runners=[flowguard_runner],
-)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Input / Output schemas (Pydantic models used inline)
+# Input / Output schemas (Pydantic models)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class RiskInput(BaseModel):
@@ -133,56 +57,79 @@ class RiskOutput(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# API Endpoint
+# Modern BentoML Class-Based Service Definition
 # ─────────────────────────────────────────────────────────────────────────────
 
-@svc.api(
-    input=JSON(pydantic_model=RiskInput),
-    output=JSON(pydantic_model=RiskOutput),
-    route="/predict",
+@bentoml.service(
+    name="flowguard_ai_service",
 )
-async def predict(input_data: RiskInput) -> RiskOutput:
-    """
-    BentoML prediction endpoint.
+class FlowGuardAIService:
+    def __init__(self):
+        print("[BENTO] Initializing FlowGuard AI Service...")
+        
+        # Load sklearn model directly from pickle
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(f"Trained model not found at {MODEL_PATH}. Run training first.")
+        
+        with open(MODEL_PATH, "rb") as f:
+            self.model = pickle.load(f)
+        print("[OK] Loaded model successfully.")
 
-    Accepts financial features of a single business and returns
-    the cash-flow risk classification with score and confidence.
-    """
-    # Build feature array in correct column order
-    x = np.array([[
-        input_data.monthly_revenue,
-        input_data.pending_invoices,
-        input_data.avg_payment_delay,
-        input_data.monthly_expenses,
-        input_data.payroll_ratio,
-        input_data.cash_reserve,
-        input_data.vendor_due_amount,
-    ]])
+        # Load scaler
+        with open(SCALER_PATH, "rb") as f:
+            self.scaler = pickle.load(f)
+        print("[OK] Loaded scaler successfully.")
 
-    # Scale features
-    x_scaled = _scaler.transform(x)
+        # Load label encoder
+        with open(ENCODER_PATH, "rb") as f:
+            self.encoder = pickle.load(f)
+        print("[OK] Loaded label encoder successfully.")
 
-    # Run prediction via the BentoML runner (async)
-    pred_idx = await flowguard_runner.predict.async_run(x_scaled)
-    proba    = await flowguard_runner.predict_proba.async_run(x_scaled)
+    @bentoml.api
+    def predict(self, input_data: RiskInput) -> RiskOutput:
+        """
+        BentoML prediction endpoint.
+        Accepts financial features of a single business and returns
+        the cash-flow risk classification with score and confidence.
+        """
+        # Build feature array in correct column order
+        x = np.array([[
+            input_data.monthly_revenue,
+            input_data.pending_invoices,
+            input_data.avg_payment_delay,
+            input_data.monthly_expenses,
+            input_data.payroll_ratio,
+            input_data.cash_reserve,
+            input_data.vendor_due_amount,
+        ]])
 
-    pred_idx = int(pred_idx[0])
-    proba    = proba[0]
+        # Scale features
+        x_scaled = self.scaler.transform(x)
 
-    # Decode label
-    classes    = _encoder.classes_  # ['High', 'Low', 'Medium']
-    risk_level = classes[pred_idx]
-    confidence = float(proba[pred_idx])
+        # Run prediction
+        pred_idx = self.model.predict(x_scaled)
+        proba    = self.model.predict_proba(x_scaled)
 
-    # Build probabilities dict and risk score
-    class_probs = {cls: round(float(p), 4) for cls, p in zip(classes, proba)}
-    WEIGHT      = {"High": 100, "Medium": 50, "Low": 0}
-    risk_score  = sum(class_probs[c] * WEIGHT[c] for c in class_probs)
+        pred_idx = int(pred_idx[0])
+        proba    = proba[0]
 
-    return RiskOutput(
-        risk_level    = risk_level,
-        risk_score    = round(risk_score, 2),
-        confidence    = round(confidence, 4),
-        probabilities = class_probs,
-        business_name = input_data.business_name,
-    )
+        # Decode label
+        classes    = self.encoder.classes_  # ['High', 'Low', 'Medium']
+        risk_level = classes[pred_idx]
+        confidence = float(proba[pred_idx])
+
+        # Build probabilities dict and risk score
+        class_probs = {cls: round(float(p), 4) for cls, p in zip(classes, proba)}
+        WEIGHT      = {"High": 100, "Medium": 50, "Low": 0}
+        risk_score  = sum(class_probs[c] * WEIGHT[c] for c in class_probs)
+
+        return RiskOutput(
+            risk_level    = risk_level,
+            risk_score    = round(risk_score, 2),
+            confidence    = round(confidence, 4),
+            probabilities = class_probs,
+            business_name = input_data.business_name,
+        )
+
+# Export the service object for uvicorn/bentoml serve
+svc = FlowGuardAIService

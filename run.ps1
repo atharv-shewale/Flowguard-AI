@@ -42,23 +42,25 @@ switch ($command) {
         python ml/automl.py
     }
     "mlflow" {
-        Write-Host "Starting MLflow UI at http://localhost:5000 ..." -ForegroundColor Green
-        Write-Host "Press Ctrl+C to stop." -ForegroundColor Yellow
-        mlflow ui --host 127.0.0.1 --port 5000
+        Write-Host "Starting MLflow Tracking Server..." -ForegroundColor Cyan
+        Write-Host "Open your browser to: http://127.0.0.1:5000" -ForegroundColor Green
+        python -m mlflow ui --host 127.0.0.1 --port 5000
     }
     "api" {
         Write-Host "Starting FastAPI at http://localhost:8000/docs ..." -ForegroundColor Green
         Write-Host "Press Ctrl+C to stop." -ForegroundColor Yellow
-        uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+        python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     }
     "bento" {
         Write-Host "Starting BentoML service at http://localhost:3000 ..." -ForegroundColor Green
         Write-Host "Press Ctrl+C to stop." -ForegroundColor Yellow
-        bentoml serve bentoml/service.py:svc --reload --port 3000
+        Push-Location bentoml
+        python -m bentoml serve service.py:svc --reload --port 3000
+        Pop-Location
     }
     "test" {
         Write-Host "Running unit tests..." -ForegroundColor Cyan
-        pytest tests/ -v --tb=short
+        python -m pytest tests/ -v --tb=short
     }
     "all" {
         Write-Host "=== FlowGuard AI - Full Setup ===" -ForegroundColor Magenta
@@ -72,7 +74,7 @@ switch ($command) {
         Write-Host ""
         Write-Host "FastAPI running at: http://localhost:8000/docs" -ForegroundColor Green
         Write-Host "Remember to start MLflow in another terminal: .\run.ps1 mlflow" -ForegroundColor Yellow
-        uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+        python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     }
     default {
         Write-Host ""

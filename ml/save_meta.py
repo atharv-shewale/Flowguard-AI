@@ -36,5 +36,5 @@ def save_model_meta(
     with open(meta_path, "wb") as f:
         pickle.dump(meta, f)
 
-    print(f"💾  Model metadata saved → {meta_path}")
+    print(f"[OK] Model metadata saved -> {meta_path}")
     return meta

@@ -61,7 +61,7 @@ def run_automl():
     )
 
     # ── 1. Load data ─────────────────────────────────────────────────────────
-    print("📂  Loading dataset…")
+    print("[DATA] Loading dataset...")
     df = pd.read_csv(DATA_PATH)
     df_model = df[FEATURE_COLS + [TARGET_COL]].copy()
     print(f"    Shape: {df_model.shape}")
@@ -73,7 +73,7 @@ def run_automl():
     #   • Feature scaling
     #   • Encoding categorical features (target label)
     #   • Cross-validation configuration
-    print("⚙️   Initialising PyCaret environment…")
+    print("[SETUP] Initialising PyCaret environment...")
     clf_setup = setup(
         data             = df_model,
         target           = TARGET_COL,
@@ -89,7 +89,7 @@ def run_automl():
     # ── 3. Compare all available models ──────────────────────────────────────
     # PyCaret trains and cross-validates 15+ classifiers in one call.
     # We sort by Accuracy and return the top-3 for inspection.
-    print("🏁  Comparing all models (this may take 1–3 minutes)…\n")
+    print("[AUTOML] Comparing all models (this may take 1–3 minutes)...\n")
     best_models = compare_models(
         sort          = "Accuracy",
         n_select      = 3,        # keep top 3
@@ -101,11 +101,11 @@ def run_automl():
     best_model = best_models[0] if isinstance(best_models, list) else best_models
     comparison_df = pull()  # grab the comparison results dataframe
 
-    print(f"\n🥇  Best model: {type(best_model).__name__}")
-    print(comparison_df[["Model", "Accuracy", "Prec. Macro", "Recall Macro", "F1"]].head(5))
+    print(f"\n[BEST] Best model: {type(best_model).__name__}")
+    print(comparison_df.head(5))
 
     # ── 4. Tune the best model's hyperparameters ─────────────────────────────
-    print("\n🔧  Tuning best model hyperparameters…")
+    print("\n[TUNE] Tuning best model hyperparameters...")
     tuned_model = tune_model(
         best_model,
         optimize       = "Accuracy",
@@ -117,18 +117,18 @@ def run_automl():
     # ── 5. Finalise (retrain on full data) ────────────────────────────────
     # finalize_model() retrains on ALL data (train + test) so we use 100%
     # of the data for the production model.
-    print("\n📦  Finalising model on full dataset…")
+    print("\n[FINALIZE] Finalising model on full dataset...")
     final_model = finalize_model(tuned_model)
 
     # ── 6. Save with PyCaret's save_model (includes full pipeline) ───────────
     pycaret_save_path = os.path.join(MODELS_DIR, "pycaret_best_model")
     save_model(final_model, pycaret_save_path)
-    print(f"💾  PyCaret pipeline saved → {pycaret_save_path}.pkl")
+    print(f"[SAVED] PyCaret pipeline saved -> {pycaret_save_path}.pkl")
 
     # ── 7. Also save as raw pickle for FastAPI compatibility ─────────────────
     with open(BEST_MODEL_PATH, "wb") as f:
         pickle.dump(final_model, f)
-    print(f"💾  Raw pickle saved → {BEST_MODEL_PATH}")
+    print(f"[SAVED] Raw pickle saved -> {BEST_MODEL_PATH}")
 
     # ── 8. Log everything to MLflow ──────────────────────────────────────────
     mlflow.set_tracking_uri("file:./mlruns")   # local file-based (no server needed)
@@ -146,8 +146,8 @@ def run_automl():
             best_row = tuned_results.iloc[0]
             mlflow.log_metrics({
                 "cv_accuracy":  float(best_row.get("Accuracy", 0)),
-                "cv_precision": float(best_row.get("Prec. Macro", 0)),
-                "cv_recall":    float(best_row.get("Recall Macro", 0)),
+                "cv_precision": float(best_row.get("Precision", best_row.get("Prec.", 0))),
+                "cv_recall":    float(best_row.get("Recall", 0)),
                 "cv_f1":        float(best_row.get("F1", 0)),
             })
 
@@ -160,16 +160,16 @@ def run_automl():
         mlflow.sklearn.log_model(final_model, "automl_best_model")
 
         run_id = mlflow.active_run().info.run_id
-        print(f"\n✅  MLflow AutoML run logged. Run ID: {run_id}")
+        print(f"\n[OK] MLflow AutoML run logged. Run ID: {run_id}")
 
-    print("\n🎉  AutoML complete! Best model is ready for deployment.")
+    print("\n[OK] AutoML complete! Best model is ready for deployment.")
     return final_model, comparison_df
 
 
 if __name__ == "__main__":
     # Generate dataset if needed
     if not os.path.exists(DATA_PATH):
-        print("⚠️  Dataset not found. Generating…")
+        print("[WARN] Dataset not found. Generating...")
         import subprocess, sys
         gen_script = os.path.join(BASE_DIR, "ml", "generate_dataset.py")
         subprocess.run([sys.executable, gen_script], check=True)

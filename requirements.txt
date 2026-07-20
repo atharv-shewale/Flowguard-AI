@@ -18,7 +18,7 @@ numpy>=1.24.0
 pandas>=2.0.0
 
 # ── AutoML ────────────────────────────────────────────────────────────────────
-pycaret[full]>=3.1.0               # AutoML: compares 15+ models automatically
+pycaret>=3.1.0               # AutoML: compares 15+ models automatically
 # Note: pycaret installs lightgbm, xgboost, catboost etc. automatically
 
 # ── MLOps / Experiment Tracking ───────────────────────────────────────────────

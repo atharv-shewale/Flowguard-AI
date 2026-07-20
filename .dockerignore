@@ -1,0 +1,61 @@
+# .dockerignore
+# ─────────────────────────────────────────────────────────────────────────────
+# FlowGuard AI – Files to exclude from Docker build context
+# Keeps the Docker image small and fast to build
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Git
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# ML training files (models are pre-built, we don't need training scripts in prod)
+ml/
+mlruns/
+mlartifacts/
+mlflow_tracking/
+
+# BentoML (we're using FastAPI, not BentoML in prod)
+bentoml/
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Docs
+*.docx
+*.md
+README.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scripts (not needed in container)
+run.ps1
+generate_docx.py
+
+# New / temp folders
+new/

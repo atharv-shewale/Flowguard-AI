@@ -44,8 +44,8 @@ def setup_mlflow():
 
     # Set tracking URI (connect to local server)
     mlflow.set_tracking_uri(TRACKING_URI)
-    print(f"\n📡  Tracking URI : {TRACKING_URI}")
-    print(f"📂  Local store  : ./mlruns/  (created automatically)")
+    print(f"\n[INFO] Tracking URI : {TRACKING_URI}")
+    print(f"[INFO] Local store  : ./mlruns/  (created automatically)")
 
     # Create each experiment if it doesn't exist
     for exp_name in EXPERIMENTS:
@@ -55,9 +55,9 @@ def setup_mlflow():
                 exp_name,
                 tags={"project": "FlowGuard-AI", "env": "development"},
             )
-            print(f"✅  Created experiment: '{exp_name}' (ID: {exp_id})")
+            print(f"[OK] Created experiment: '{exp_name}' (ID: {exp_id})")
         else:
-            print(f"ℹ️   Experiment already exists: '{exp_name}' (ID: {exp.experiment_id})")
+            print(f"[INFO] Experiment already exists: '{exp_name}' (ID: {exp.experiment_id})")
 
     print("\n" + "=" * 55)
     print("  HOW TO USE MLFLOW")

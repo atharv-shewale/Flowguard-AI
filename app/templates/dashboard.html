@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowGuard AI — SME Cash Flow Risk Dashboard</title>
+    <meta name="description" content="Real-time SME cash flow risk prediction powered by Random Forest ML with full MLflow & AutoML transparency.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ── DESIGN SYSTEM ──────────────────────────────────────────────── */
+        :root {
+            --bg:          #04060f;
+            --bg2:         #090d1a;
+            --surface:     rgba(15,20,40,0.75);
+            --surface2:    rgba(22,30,55,0.6);
+            --border:      rgba(255,255,255,0.07);
+            --border2:     rgba(255,255,255,0.13);
+            --indigo:      #6366f1;
+            --indigo-glow: rgba(99,102,241,0.3);
+            --indigo-dim:  rgba(99,102,241,0.12);
+            --green:       #10b981;
+            --green-dim:   rgba(16,185,129,0.15);
+            --amber:       #f59e0b;
+            --amber-dim:   rgba(245,158,11,0.15);
+            --red:         #ef4444;
+            --red-dim:     rgba(239,68,68,0.15);
+            --purple:      #a855f7;
+            --purple-dim:  rgba(168,85,247,0.15);
+            --cyan:        #06b6d4;
+            --text:        #e2e8f0;
+            --muted:       #94a3b8;
+            --dim:         #475569;
+            --font:        'Inter', sans-serif;
+            --mono:        'JetBrains Mono', monospace;
+            --display:     'Outfit', sans-serif;
+            --shadow:      0 20px 60px -15px rgba(0,0,0,0.6);
+            --ease:        cubic-bezier(0.4,0,0.2,1);
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: radial-gradient(ellipse at 70% 0%, #1a1040 0%, #04060f 55%, #000510 100%);
+            color: var(--text);
+            font-family: var(--font);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:3px; }
+
+        /* ── LAYOUT ─────────────────────────────────────────────────────── */
+        .app { max-width:1440px; margin:0 auto; padding:1.75rem 1.5rem; }
+
+        /* ── HEADER ─────────────────────────────────────────────────────── */
+        header {
+            display:flex; justify-content:space-between; align-items:center;
+            padding-bottom:1.5rem; margin-bottom:1.75rem;
+            border-bottom:1px solid var(--border);
+        }
+        .logo { display:flex; align-items:center; gap:.875rem; }
+        .logo-icon {
+            width:44px; height:44px; border-radius:12px;
+            background: linear-gradient(135deg, var(--indigo) 0%, var(--purple) 100%);
+            display:flex; align-items:center; justify-content:center;
+            box-shadow: 0 0 24px var(--indigo-glow);
+        }
+        .logo-icon svg { width:24px; height:24px; fill:white; }
+        .logo-name { font-family:var(--display); font-size:1.5rem; font-weight:800;
+            background: linear-gradient(90deg,#fff,#c7d2fe); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .logo-sub { font-size:.72rem; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; margin-top:2px; }
+
+        .header-right { display:flex; align-items:center; gap:.75rem; }
+        .status-pill {
+            display:flex; align-items:center; gap:.5rem; padding:.4rem 1rem;
+            background: rgba(255,255,255,0.03); border:1px solid var(--border);
+            border-radius:20px; font-size:.82rem; font-weight:500; color:var(--muted);
+            transition: all .3s var(--ease);
+        }
+        .status-pill.online { border-color:rgba(16,185,129,0.3); color:var(--green); }
+        .status-dot {
+            width:8px; height:8px; border-radius:50%;
+            background:var(--dim); transition: all .3s;
+        }
+        .status-dot.pulse {
+            background:var(--green);
+            box-shadow:0 0 10px rgba(16,185,129,0.6);
+            animation:pulse 2s infinite;
+        }
+        .docs-link {
+            display:flex; align-items:center; gap:.4rem; padding:.4rem .875rem;
+            background:var(--indigo-dim); border:1px solid rgba(99,102,241,0.25);
+            border-radius:8px; font-size:.82rem; font-weight:500; color:#c7d2fe;
+            text-decoration:none; transition: all .3s var(--ease);
+        }
+        .docs-link:hover { background:rgba(99,102,241,0.2); transform:translateY(-1px); }
+        .docs-link svg { width:14px; height:14px; stroke:currentColor; }
+
+        /* ── TABS ───────────────────────────────────────────────────────── */
+        .tabs {
+            display:flex; gap:.5rem; margin-bottom:1.75rem;
+            background:rgba(255,255,255,0.02); border:1px solid var(--border);
+            padding:.3rem; border-radius:12px; width:fit-content;
+        }
+        .tab {
+            background:transparent; border:none; color:var(--muted);
+            padding:.55rem 1.1rem; border-radius:8px; cursor:pointer;
+            font-family:var(--font); font-size:.9rem; font-weight:500;
+            display:flex; align-items:center; gap:.45rem;
+            transition: all .25s var(--ease);
+        }
+        .tab:hover { color:var(--text); background:rgba(255,255,255,0.04); }
+        .tab.active { color:#fff; background:var(--indigo); box-shadow:0 4px 14px rgba(99,102,241,0.35); }
+        .tab svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; }
+
+        /* ── WORKSPACE ──────────────────────────────────────────────────── */
+        .workspace { display:none; }
+        .workspace.active { display:block; animation: fadeIn .35s var(--ease); }
+
+        /* ── GLASS CARD ─────────────────────────────────────────────────── */
+        .card {
+            background:var(--surface); backdrop-filter:blur(20px);
+            border:1px solid var(--border); border-radius:16px;
+            padding:1.5rem; box-shadow:var(--shadow);
+            transition: border-color .25s;
+        }
+        .card:hover { border-color:var(--border2); }
+        .card-title {
+            font-family:var(--display); font-size:1.1rem; font-weight:700;
+            color:#fff; display:flex; align-items:center; gap:.5rem;
+            margin-bottom:1.25rem;
+        }
+        .card-title svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; }
+        .card-sub { font-size:.8rem; color:var(--muted); margin-top:.2rem; font-weight:400; }
+
+        /* ── FALLBACK BANNER ───────────────────────────────────────────── */
+        .fallback-banner {
+            display:none; margin-bottom:1.5rem;
+            background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3);
+            border-radius:10px; padding:.875rem 1.25rem;
+            color:var(--amber); font-size:.85rem; gap:.75rem; align-items:center;
+        }
+        .fallback-banner svg { width:18px; height:18px; flex-shrink:0; stroke:currentColor; fill:none; }
+
+        /* ── PREDICTOR GRID ─────────────────────────────────────────────── */
+        .predictor-grid {
+            display:grid; grid-template-columns:1.1fr .9fr; gap:1.5rem;
+        }
+        @media(max-width:1024px){ .predictor-grid { grid-template-columns:1fr; } }
+
+        /* ── PRESETS ───────────────────────────────────────────────────── */
+        .presets-bar {
+            display:flex; align-items:center; flex-wrap:wrap; gap:.6rem;
+            margin-bottom:1.25rem; padding:.875rem 1.1rem;
+            background:rgba(255,255,255,0.02); border:1px solid var(--border);
+            border-radius:10px;
+        }
+        .preset-lbl { font-size:.78rem; font-weight:600; color:var(--dim);
+            text-transform:uppercase; letter-spacing:.06em; }
+        .preset-btn {
+            display:flex; align-items:center; gap:.35rem;
+            padding:.35rem .8rem; border-radius:16px; border:1px solid var(--border);
+            background:rgba(255,255,255,0.03); color:var(--text);
+            font-size:.82rem; font-family:var(--font); cursor:pointer;
+            transition: all .25s var(--ease);
+        }
+        .preset-btn:hover { transform:translateY(-1px); }
+        .preset-btn.low:hover  { border-color:var(--green); color:var(--green); background:var(--green-dim); }
+        .preset-btn.med:hover  { border-color:var(--amber); color:var(--amber); background:var(--amber-dim); }
+        .preset-btn.high:hover { border-color:var(--red);   color:var(--red);   background:var(--red-dim); }
+        .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+        .dot.g { background:var(--green); }
+        .dot.a { background:var(--amber); }
+        .dot.r { background:var(--red); }
+
+        /* ── FORM ───────────────────────────────────────────────────────── */
+        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; }
+        @media(max-width:640px){ .form-grid { grid-template-columns:1fr; } }
+        .form-full { grid-column:1/-1; }
+        .field { display:flex; flex-direction:column; gap:.4rem; }
+        .field label {
+            font-size:.78rem; font-weight:500; color:var(--muted);
+            display:flex; justify-content:space-between;
+        }
+        .field label .unit { font-size:.72rem; color:var(--dim); font-weight:400; }
+        .field input {
+            background:rgba(0,0,0,0.3); border:1px solid var(--border);
+            color:#fff; padding:.65rem .875rem; border-radius:8px;
+            font-family:var(--font); font-size:.9rem;
+            transition: all .2s var(--ease); width:100%;
+        }
+        .field input:focus {
+            outline:none; border-color:var(--indigo);
+            box-shadow:0 0 0 3px rgba(99,102,241,0.15);
+            background:rgba(0,0,0,0.5);
+        }
+        .btn-predict {
+            display:flex; align-items:center; justify-content:center; gap:.5rem;
+            width:100%; margin-top:1.25rem; padding:.85rem;
+            background: linear-gradient(135deg, var(--indigo), #4338ca);
+            color:#fff; border:none; border-radius:10px;
+            font-family:var(--font); font-size:.95rem; font-weight:600;
+            cursor:pointer; transition: all .25s var(--ease);
+            box-shadow:0 8px 20px -8px rgba(99,102,241,0.5);
+        }
+        .btn-predict:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 12px 28px -8px rgba(99,102,241,0.7); }
+        .btn-predict:disabled { opacity:.6; cursor:not-allowed; }
+        .spinner {
+            display:none; width:18px; height:18px;
+            border:2.5px solid rgba(255,255,255,0.25);
+            border-top-color:#fff; border-radius:50%;
+            animation: spin .7s linear infinite;
+        }
+
+        /* ── RESULTS PANEL ───────────────────────────────────────────────── */
+        .results-panel { min-height:500px; }
+        .placeholder {
+            display:flex; flex-direction:column; align-items:center;
+            justify-content:center; height:440px; text-align:center;
+            color:var(--dim); gap:1rem;
+        }
+        .placeholder-ring {
+            width:72px; height:72px; border-radius:50%;
+            border:2px dashed rgba(255,255,255,0.1);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .placeholder-ring svg { width:32px; height:32px; stroke:currentColor; fill:none; stroke-width:1.5; }
+
+        /* results-actual hidden by default, shown via JS */
+        .results-actual { display:none; flex-direction:column; gap:1.5rem; }
+
+        /* Risk summary top card */
+        .risk-summary {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:1.25rem 1.5rem; border-radius:12px;
+            background:rgba(255,255,255,0.02); border:1px solid var(--border2);
+        }
+        .risk-biz-name { font-family:var(--display); font-size:1.2rem; font-weight:700; color:#fff; }
+        .risk-biz-id { font-size:.75rem; color:var(--dim); margin-top:.15rem; }
+        .risk-badge {
+            display:inline-flex; align-items:center; padding:.3rem .875rem;
+            border-radius:20px; font-size:.82rem; font-weight:700; margin-top:.6rem; width:fit-content;
+        }
+        .risk-badge.low    { background:var(--green-dim); color:var(--green); border:1px solid rgba(16,185,129,0.35); }
+        .risk-badge.medium { background:var(--amber-dim); color:var(--amber); border:1px solid rgba(245,158,11,0.35); }
+        .risk-badge.high   { background:var(--red-dim);   color:var(--red);   border:1px solid rgba(239,68,68,0.35); animation:pulseRed 2s infinite; }
+
+        /* Donut chart */
+        .donut-wrap { position:relative; width:96px; height:96px; flex-shrink:0; }
+        .donut-svg { transform:rotate(-90deg); }
+        .donut-bg  { fill:none; stroke:rgba(255,255,255,0.05); stroke-width:9; }
+        .donut-arc { fill:none; stroke-width:9; stroke-linecap:round; stroke-dasharray:0 264; transition:stroke-dasharray .9s var(--ease), stroke .4s; }
+        .donut-label {
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            display:flex; flex-direction:column; align-items:center;
+        }
+        .donut-score { font-family:var(--display); font-size:1.3rem; font-weight:800; color:#fff; line-height:1; }
+        .donut-sub   { font-size:.58rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+
+        /* Prob bars */
+        .prob-section h4 { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin-bottom:.75rem; }
+        .prob-row { display:flex; align-items:center; gap:.875rem; margin-bottom:.6rem; }
+        .prob-name { width:68px; font-size:.82rem; font-weight:500; color:var(--muted); }
+        .prob-track { flex:1; height:6px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden; }
+        .prob-bar { height:100%; border-radius:4px; width:0; transition:width .6s var(--ease) .1s; }
+        .prob-bar.low    { background:var(--green); }
+        .prob-bar.medium { background:var(--amber); }
+        .prob-bar.high   { background:var(--red); }
+        .prob-pct { width:42px; font-size:.82rem; font-weight:600; text-align:right; color:var(--text); }
+
+        /* Insights */
+        .insight-list { display:flex; flex-direction:column; gap:.55rem; }
+        .insight-row {
+            display:flex; gap:.75rem; align-items:flex-start;
+            padding:.75rem; border-radius:8px;
+            background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);
+        }
+        .insight-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:.1rem; }
+        .insight-icon svg { width:11px; height:11px; fill:currentColor; }
+        .insight-row.Healthy .insight-icon { background:var(--green-dim); color:var(--green); }
+        .insight-row.Warning .insight-icon { background:var(--amber-dim); color:var(--amber); }
+        .insight-row.Critical .insight-icon { background:var(--red-dim);   color:var(--red); }
+        .insight-title { font-size:.82rem; font-weight:600; color:#fff; }
+        .insight-msg   { font-size:.78rem; color:var(--muted); margin-top:.1rem; }
+
+        /* Recommendation box */
+        .reco-box {
+            padding:1.1rem 1.25rem; border-radius:10px; display:flex; gap:.875rem; align-items:flex-start;
+            background:linear-gradient(135deg, rgba(99,102,241,.07), rgba(168,85,247,.05));
+            border:1px solid rgba(99,102,241,0.2);
+        }
+        .reco-icon { flex-shrink:0; color:#c7d2fe; margin-top:.1rem; }
+        .reco-icon svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; }
+        .reco-head { font-family:var(--display); font-size:.9rem; font-weight:700; color:#c7d2fe; margin-bottom:.2rem; }
+        .reco-text { font-size:.82rem; color:#93c5fd; line-height:1.5; }
+
+        /* ── PORTFOLIO TAB ───────────────────────────────────────────────── */
+        .port-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+        @media(max-width:768px){ .port-summary { grid-template-columns:repeat(2,1fr); } }
+        .metric-mini { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:.875rem 1.1rem; }
+        .metric-mini-val { font-family:var(--display); font-size:1.75rem; font-weight:800; color:#fff; line-height:1.1; }
+        .metric-mini-lbl { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-top:.2rem; }
+        .stacked-bar { height:10px; border-radius:5px; display:flex; overflow:hidden; background:rgba(255,255,255,0.05); margin:.75rem 0 .4rem; }
+        .seg-low    { background:var(--green); transition:width .8s var(--ease); }
+        .seg-medium { background:var(--amber); transition:width .8s var(--ease) .1s; }
+        .seg-high   { background:var(--red);   transition:width .8s var(--ease) .2s; }
+        .seg-labels { display:flex; gap:1rem; }
+        .seg-label  { display:flex; align-items:center; gap:.35rem; font-size:.78rem; color:var(--muted); }
+        .table-wrap { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; font-size:.82rem; }
+        th { padding:.6rem .75rem; text-align:left; font-size:.72rem; font-weight:600;
+            text-transform:uppercase; letter-spacing:.05em; color:var(--dim);
+            border-bottom:1px solid var(--border); white-space:nowrap; }
+        td { padding:.55rem .75rem; border-bottom:1px solid rgba(255,255,255,0.03); }
+        tr:hover td { background:rgba(255,255,255,0.02); }
+        .editable { background:transparent; border:none; color:var(--text); font-family:var(--font);
+            font-size:.82rem; width:100%; min-width:80px; padding:.2rem .3rem; border-radius:4px; }
+        .editable:focus { outline:none; background:rgba(99,102,241,0.1); border-radius:4px; }
+        .btn-table { background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.25);
+            color:#c7d2fe; padding:.25rem .65rem; border-radius:6px; cursor:pointer;
+            font-size:.75rem; font-family:var(--font); transition: all .2s; }
+        .btn-table:hover { background:rgba(99,102,241,0.25); }
+        .btn-scan {
+            display:flex; align-items:center; gap:.5rem;
+            padding:.7rem 1.25rem; background:linear-gradient(135deg,var(--indigo),#4338ca);
+            color:#fff; border:none; border-radius:9px; font-family:var(--font); font-size:.88rem;
+            font-weight:600; cursor:pointer; transition: all .25s var(--ease);
+            box-shadow:0 6px 16px -6px rgba(99,102,241,0.5);
+        }
+        .btn-scan:hover:not(:disabled) { transform:translateY(-1px); }
+        .btn-scan:disabled { opacity:.6; cursor:not-allowed; }
+        .btn-add {
+            padding:.55rem 1rem; background:rgba(255,255,255,0.03); border:1px solid var(--border);
+            color:var(--muted); border-radius:8px; cursor:pointer; font-size:.82rem; font-family:var(--font);
+            transition: all .2s;
+        }
+        .btn-add:hover { color:var(--text); border-color:var(--border2); }
+
+        /* ── ML TRANSPARENCY TAB ─────────────────────────────────────────── */
+        .transparency-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+        @media(max-width:1024px){ .transparency-grid { grid-template-columns:1fr; } }
+        .info-row { display:flex; justify-content:space-between; align-items:flex-start;
+            padding:.65rem 0; border-bottom:1px solid var(--border); gap:1rem; }
+        .info-row:last-child { border-bottom:none; }
+        .info-key { font-size:.8rem; color:var(--muted); font-weight:500; flex-shrink:0; }
+        .info-val { font-size:.82rem; color:var(--text); text-align:right; word-break:break-all; }
+        .info-val.mono { font-family:var(--mono); font-size:.72rem; color:var(--indigo); }
+        .info-val.hi { color:var(--green); font-weight:700; }
+
+        /* Feature importance bars */
+        .fi-row { margin:.55rem 0; }
+        .fi-header { display:flex; justify-content:space-between; margin-bottom:.3rem; }
+        .fi-name { font-size:.8rem; color:var(--text); font-weight:500; }
+        .fi-pct  { font-size:.78rem; color:var(--muted); }
+        .fi-track { height:7px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden; }
+        .fi-fill  { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--indigo),var(--purple)); width:0; transition:width 1s var(--ease); }
+
+        /* AutoML comparison table */
+        .cmp-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+        .cmp-table th { padding:.5rem .65rem; color:var(--dim); font-size:.7rem; text-align:left;
+            text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); white-space:nowrap; }
+        .cmp-table td { padding:.5rem .65rem; border-bottom:1px solid rgba(255,255,255,0.025); }
+        .cmp-table tr.best-row td { background:rgba(99,102,241,0.08); color:#c7d2fe; font-weight:600; }
+        .cmp-table tr:hover td { background:rgba(255,255,255,0.02); }
+        .cmp-acc { font-family:var(--mono); font-weight:600; }
+
+        /* Pipeline steps */
+        .pipeline-step { display:flex; gap:.875rem; margin-bottom:1rem; }
+        .step-num {
+            width:26px; height:26px; border-radius:50%; flex-shrink:0;
+            background:var(--indigo-dim); border:1px solid rgba(99,102,241,0.3);
+            display:flex; align-items:center; justify-content:center;
+            font-size:.7rem; font-weight:700; color:var(--indigo); margin-top:.1rem;
+        }
+        .step-label { font-size:.82rem; font-weight:600; color:var(--text); }
+        .step-detail { font-size:.77rem; color:var(--muted); margin-top:.15rem; line-height:1.4; }
+
+        /* Hyperparams grid */
+        .hp-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+        .hp-chip {
+            padding:.3rem .75rem; border-radius:20px;
+            background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.25);
+            font-size:.75rem; color:#d8b4fe; font-family:var(--mono);
+        }
+        .hp-key { color:var(--muted); }
+
+        /* Feature tags */
+        .feat-tags { display:flex; flex-wrap:wrap; gap:.4rem; }
+        .feat-tag {
+            padding:.25rem .65rem; border-radius:6px;
+            background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.2);
+            font-size:.75rem; color:var(--cyan); font-family:var(--mono);
+        }
+
+        /* ── ANIMATIONS ─────────────────────────────────────────────────── */
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+        @keyframes spin    { to{transform:rotate(360deg)} }
+        @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:.5} }
+        @keyframes pulseRed { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.3)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <!-- ── HEADER ──────────────────────────────────────────────────── -->
+    <header>
+        <div class="logo">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24"><path d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1zm5 0h2c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1H7c-.55 0-1 .45-1 1v15c0 .55.45 1 1 1zm5 0h2c.55 0 1-.45 1-1v-5c0-.55-.45-1-1-1h-2c-.55 0-1 .45-1 1v5c0 .55.45 1 1 1zm5 0h2c.55 0 1-.45 1-1v-7c0-.55-.45-1-1-1h-2c-.55 0-1 .45-1 1v7c0 .55.45 1 1 1z"/></svg>
+            </div>
+            <div>
+                <div class="logo-name">FlowGuard AI</div>
+                <div class="logo-sub">SME Cash Flow Risk Oracle</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="status-pill" id="statusPill">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting…</span>
+            </div>
+            <a href="/docs" target="_blank" class="docs-link">
+                <svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Swagger API
+            </a>
+        </div>
+    </header>
+
+    <!-- ── TABS ─────────────────────────────────────────────────────── -->
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('predictor',this)">
+            <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Single Predictor
+        </button>
+        <button class="tab" onclick="switchTab('portfolio',this)">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Portfolio Analyzer
+        </button>
+        <button class="tab" onclick="switchTab('transparency',this)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            ML Transparency
+        </button>
+    </div>
+
+    <!-- ── FALLBACK BANNER ─────────────────────────────────────────── -->
+    <div class="fallback-banner" id="fallbackBanner">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+        <span><strong>Heuristic Fallback Mode:</strong> ML model not found. Run <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px">.\run.ps1 train</code> to activate Random Forest predictions.</span>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         TAB 1: SINGLE PREDICTOR
+    ══════════════════════════════════════════════════════════════════ -->
+    <div id="ws-predictor" class="workspace active">
+
+        <!-- Presets -->
+        <div class="presets-bar">
+            <span class="preset-lbl">Load Preset:</span>
+            <button class="preset-btn low"  onclick="loadPreset('low')"><span class="dot g"></span>Solid Enterprises (Low Risk)</button>
+            <button class="preset-btn med"  onclick="loadPreset('medium')"><span class="dot a"></span>Cape Town Bakery (Medium Risk)</button>
+            <button class="preset-btn high" onclick="loadPreset('high')"><span class="dot r"></span>Struggling Co (High Risk)</button>
+        </div>
+
+        <!-- ML Transparency Mini-Banner -->
+        <div style="margin-bottom:1.5rem; padding: 1rem 1.25rem; border-radius:10px; background:rgba(99,102,241,0.05); border:1px solid rgba(99,102,241,0.2); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+                <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--indigo);fill:none;stroke-width:2;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <div style="font-size:0.85rem; color:var(--text);">
+                    <strong style="color:#fff;">Active Model:</strong> <span id="mini_model_name">Loading...</span> 
+                    <span style="color:var(--dim); margin:0 0.5rem;">|</span>
+                    <strong>Version:</strong> <span id="mini_model_version">...</span>
+                </div>
+            </div>
+            <button onclick="switchTab('transparency', document.querySelectorAll('.tab')[2])" style="background:var(--indigo-dim); border:1px solid rgba(99,102,241,0.3); padding:0.4rem 0.8rem; border-radius:6px; color:#c7d2fe; font-size:0.75rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:all 0.2s;">
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                View Full Transparency
+            </button>
+        </div>
+
+        <div class="predictor-grid">
+            <!-- LEFT: Form -->
+            <div class="card">
+                <div class="card-title">
+                    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    SME Financial Profile
+                    <span class="card-sub">Enter 7 financial metrics below</span>
+                </div>
+
+                <form id="predictForm" onsubmit="runPrediction(event)">
+                    <div class="form-grid">
+                        <div class="field form-full">
+                            <label for="f_biz_name">Business Name</label>
+                            <input type="text" id="f_biz_name" placeholder="e.g. Cape Town Bakery Pty Ltd" required>
+                        </div>
+                        <div class="field form-full">
+                            <label for="f_biz_id">Business ID</label>
+                            <input type="text" id="f_biz_id" placeholder="e.g. BIZ-002">
+                        </div>
+                        <div class="field">
+                            <label for="f_revenue">Monthly Revenue <span class="unit">ZAR</span></label>
+                            <input type="number" id="f_revenue" step="0.01" min="1" required>
+                        </div>
+                        <div class="field">
+                            <label for="f_expenses">Monthly Expenses <span class="unit">ZAR</span></label>
+                            <input type="number" id="f_expenses" step="0.01" min="0" required>
+                        </div>
+                        <div class="field">
+                            <label for="f_cash">Cash Reserve <span class="unit">ZAR</span></label>
+                            <input type="number" id="f_cash" step="0.01" min="0" required>
+                        </div>
+                        <div class="field">
+                            <label for="f_invoices">Pending Invoices <span class="unit">ZAR</span></label>
+                            <input type="number" id="f_invoices" step="0.01" min="0" required>
+                        </div>
+                        <div class="field">
+                            <label for="f_delay">Avg Payment Delay <span class="unit">Days</span></label>
+                            <input type="number" id="f_delay" step="0.1" min="0" required>
+                        </div>
+                        <div class="field">
+                            <label for="f_payroll">Payroll Ratio <span class="unit">0.00–1.00</span></label>
+                            <input type="number" id="f_payroll" step="0.01" min="0" max="1" required>
+                        </div>
+                        <div class="field form-full">
+                            <label for="f_vendor">Vendor Due Amount <span class="unit">ZAR</span></label>
+                            <input type="number" id="f_vendor" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-predict" id="btnPredict">
+                        <div class="spinner" id="predictSpinner"></div>
+                        <span id="predictBtnTxt">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-3px;margin-right:4px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            Run Risk Prediction
+                        </span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- RIGHT: Results panel -->
+            <div class="card results-panel">
+                <!-- Placeholder -->
+                <div class="placeholder" id="rPlaceholder">
+                    <div class="placeholder-ring">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-size:.95rem;color:var(--muted);font-weight:500;">Awaiting Prediction</div>
+                        <div style="font-size:.8rem;margin-top:.3rem;">Load a preset and click Run Risk Prediction</div>
+                    </div>
+                </div>
+
+                <!-- Actual results -->
+                <div class="results-actual" id="rActual">
+                    <!-- Risk summary -->
+                    <div class="risk-summary">
+                        <div>
+                            <div class="risk-biz-name" id="r_bizName">—</div>
+                            <div class="risk-biz-id"   id="r_bizId">—</div>
+                            <div class="risk-badge"    id="r_badge">—</div>
+                        </div>
+                        <div class="donut-wrap">
+                            <svg class="donut-svg" width="96" height="96" viewBox="0 0 96 96">
+                                <circle class="donut-bg"  cx="48" cy="48" r="42"/>
+                                <circle class="donut-arc" cx="48" cy="48" r="42" id="donutArc"/>
+                            </svg>
+                            <div class="donut-label">
+                                <span class="donut-score" id="r_score">—</span>
+                                <span class="donut-sub">Score</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Probability bars -->
+                    <div>
+                        <h4 style="font-size:.75rem;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;">
+                            Class Probabilities · Confidence <span id="r_conf">—</span>
+                        </h4>
+                        <div class="prob-row">
+                            <span class="prob-name">Low Risk</span>
+                            <div class="prob-track"><div class="prob-bar low" id="pb_low"></div></div>
+                            <span class="prob-pct" id="pv_low">0%</span>
+                        </div>
+                        <div class="prob-row">
+                            <span class="prob-name">Medium</span>
+                            <div class="prob-track"><div class="prob-bar medium" id="pb_med"></div></div>
+                            <span class="prob-pct" id="pv_med">0%</span>
+                        </div>
+                        <div class="prob-row">
+                            <span class="prob-name">High Risk</span>
+                            <div class="prob-track"><div class="prob-bar high" id="pb_high"></div></div>
+                            <span class="prob-pct" id="pv_high">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Financial Health Insights -->
+                    <div>
+                        <h4 style="font-size:.75rem;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;">Financial Health Insights</h4>
+                        <div class="insight-list" id="r_insights"></div>
+                    </div>
+
+                    <!-- Recommendation -->
+                    <div class="reco-box">
+                        <div class="reco-icon"><svg viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
+                        <div>
+                            <div class="reco-head">Recommended Strategy</div>
+                            <div class="reco-text" id="r_reco">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         TAB 2: PORTFOLIO ANALYZER
+    ══════════════════════════════════════════════════════════════════ -->
+    <div id="ws-portfolio" class="workspace">
+        <div class="port-summary">
+            <div class="metric-mini">
+                <div class="metric-mini-val" id="p_total">4</div>
+                <div class="metric-mini-lbl">Total Businesses</div>
+            </div>
+            <div class="metric-mini">
+                <div class="metric-mini-val" style="color:var(--green)" id="p_low">—</div>
+                <div class="metric-mini-lbl">Low Risk</div>
+            </div>
+            <div class="metric-mini">
+                <div class="metric-mini-val" style="color:var(--amber)" id="p_med">—</div>
+                <div class="metric-mini-lbl">Medium Risk</div>
+            </div>
+            <div class="metric-mini">
+                <div class="metric-mini-val" style="color:var(--red)" id="p_high">—</div>
+                <div class="metric-mini-lbl">High Risk</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:1.5rem;">
+            <div class="card-title">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Risk Distribution
+            </div>
+            <div class="stacked-bar">
+                <div class="seg-low"    id="seg_low"    style="width:0%"></div>
+                <div class="seg-medium" id="seg_med"    style="width:0%"></div>
+                <div class="seg-high"   id="seg_high"   style="width:0%"></div>
+            </div>
+            <div class="seg-labels">
+                <div class="seg-label"><span class="dot g"></span>Low <strong id="sl_low">–</strong>%</div>
+                <div class="seg-label"><span class="dot a"></span>Medium <strong id="sl_med">–</strong>%</div>
+                <div class="seg-label"><span class="dot r"></span>High <strong id="sl_high">–</strong>%</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+                <div class="card-title" style="margin-bottom:0">
+                    <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    Business Portfolio
+                </div>
+                <div style="display:flex;gap:.6rem;">
+                    <button class="btn-add" onclick="addPortfolioRow()">+ Add Row</button>
+                    <button class="btn-scan" id="btnScan" onclick="runPortfolioScan()">
+                        <div class="spinner" id="scanSpinner"></div>
+                        <span id="scanBtnTxt">Run Portfolio Scan</span>
+                    </button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="portTable">
+                    <thead>
+                        <tr>
+                            <th>Business</th><th>Revenue</th><th>Expenses</th><th>Cash Res.</th>
+                            <th>Invoices</th><th>Delay(d)</th><th>Payroll</th><th>Vendor Due</th>
+                            <th>Risk</th><th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         TAB 3: ML TRANSPARENCY
+    ══════════════════════════════════════════════════════════════════ -->
+    <div id="ws-transparency" class="workspace">
+
+        <div class="transparency-grid">
+            <!-- LEFT COLUMN -->
+            <div style="display:flex;flex-direction:column;gap:1.5rem;">
+
+                <!-- Model Identity -->
+                <div class="card">
+                    <div class="card-title" style="color:var(--indigo)">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                        Active Model Identity
+                    </div>
+                    <div id="modelIdentity">
+                        <div class="info-row"><span class="info-key">Status</span><span class="info-val" id="t_status">Loading…</span></div>
+                        <div class="info-row"><span class="info-key">Model Algorithm</span><span class="info-val" id="t_name">Loading…</span></div>
+                        <div class="info-row"><span class="info-key">Version</span><span class="info-val" id="t_version">Loading…</span></div>
+                        <div class="info-row"><span class="info-key">Test Accuracy</span><span class="info-val hi" id="t_acc">Loading…</span></div>
+                        <div class="info-row"><span class="info-key">Weighted F1</span><span class="info-val hi" id="t_f1">Loading…</span></div>
+                        <div class="info-row"><span class="info-key">Trained At</span><span class="info-val" id="t_date">Loading…</span></div>
+                        <div class="info-row"><span class="info-key">MLflow Run ID</span><span class="info-val mono" id="t_mlflow">Loading…</span></div>
+                    </div>
+                </div>
+
+                <!-- Hyperparameters -->
+                <div class="card">
+                    <div class="card-title" style="color:var(--purple)">
+                        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        Model Hyperparameters
+                    </div>
+                    <div class="hp-grid" id="t_hyperparams">
+                        <span style="color:var(--dim);font-size:.8rem;">Loading…</span>
+                    </div>
+                </div>
+
+                <!-- Feature Tags -->
+                <div class="card">
+                    <div class="card-title" style="color:var(--cyan)">
+                        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                        Input Feature Vectors (7)
+                    </div>
+                    <div class="feat-tags" id="t_features">
+                        <span style="color:var(--dim);font-size:.8rem;">Loading…</span>
+                    </div>
+                </div>
+
+                <!-- Training Pipeline -->
+                <div class="card">
+                    <div class="card-title" style="color:var(--amber)">
+                        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        Training Pipeline Steps
+                    </div>
+                    <div id="t_pipeline">
+                        <span style="color:var(--dim);font-size:.8rem;">Loading…</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <div style="display:flex;flex-direction:column;gap:1.5rem;">
+
+                <!-- Feature Importances -->
+                <div class="card">
+                    <div class="card-title" style="color:var(--green)">
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        Feature Importances
+                        <span class="card-sub" style="margin-left:auto;font-size:.72rem;color:var(--dim)">Gini Impurity Decrease</span>
+                    </div>
+                    <div id="t_fiList">
+                        <span style="color:var(--dim);font-size:.8rem;">Loading…</span>
+                    </div>
+                </div>
+
+                <!-- AutoML Model Comparison -->
+                <div class="card">
+                    <div class="card-title" style="color:var(--red)">
+                        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                        AutoML Model Comparison (PyCaret)
+                    </div>
+                    <p style="font-size:.78rem;color:var(--muted);margin-bottom:1rem;">
+                        PyCaret ran 5-fold cross-validation on all classifiers. The top-3 were tuned. Final model retrained on 100% data.
+                    </p>
+                    <div class="table-wrap">
+                        <table class="cmp-table">
+                            <thead>
+                                <tr><th>Model</th><th>Accuracy</th><th>F1</th><th>Precision</th><th>Recall</th><th>Time(s)</th></tr>
+                            </thead>
+                            <tbody id="t_cmpBody">
+                                <tr><td colspan="6" style="color:var(--dim);text-align:center;padding:1.5rem;">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div><!-- /.app -->
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JAVASCRIPT CONTROLLER
+══════════════════════════════════════════════════════════════════════ -->
+<script>
+"use strict";
+
+const API = (window.location.protocol === 'file:' || window.location.origin === 'null' || !window.location.origin) ? 'http://127.0.0.1:8000' : window.location.origin;
+
+// ── PRESETS ────────────────────────────────────────────────────────
+const PRESETS = {
+    low: {
+        business_name:"Solid Enterprises Ltd", business_id:"BIZ-001",
+        monthly_revenue:130000, pending_invoices:8000, avg_payment_delay:4,
+        monthly_expenses:60000, payroll_ratio:0.22, cash_reserve:90000, vendor_due_amount:6000
+    },
+    medium: {
+        business_name:"Cape Town Bakery Pty Ltd", business_id:"BIZ-002",
+        monthly_revenue:85000, pending_invoices:22000, avg_payment_delay:18,
+        monthly_expenses:54000, payroll_ratio:0.38, cash_reserve:18000, vendor_due_amount:25000
+    },
+    high: {
+        business_name:"Struggling Co", business_id:"BIZ-003",
+        monthly_revenue:28000, pending_invoices:55000, avg_payment_delay:45,
+        monthly_expenses:38000, payroll_ratio:0.72, cash_reserve:3000, vendor_due_amount:48000
+    }
+};
+
+// ── PORTFOLIO DEFAULT DATA ─────────────────────────────────────────
+let portData = [
+    { business_name:"Cape Peninsula Retail",     monthly_revenue:120000, monthly_expenses:85000,  cash_reserve:40000, pending_invoices:12000, avg_payment_delay:10, payroll_ratio:0.30, vendor_due_amount:15000, risk_level:"-" },
+    { business_name:"Joburg Logistics Solutions", monthly_revenue:210000, monthly_expenses:180000, cash_reserve:15000, pending_invoices:85000, avg_payment_delay:42, payroll_ratio:0.45, vendor_due_amount:90000, risk_level:"-" },
+    { business_name:"Durban Sea Harvests",        monthly_revenue:75000,  monthly_expenses:30000,  cash_reserve:85000, pending_invoices:5000,  avg_payment_delay:3,  payroll_ratio:0.20, vendor_due_amount:4000,  risk_level:"-" },
+    { business_name:"Soweto Hair Salon",          monthly_revenue:22000,  monthly_expenses:25000,  cash_reserve:1000,  pending_invoices:15000, avg_payment_delay:25, payroll_ratio:0.65, vendor_due_amount:12000, risk_level:"-" }
+];
+
+// ── INIT ───────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    checkHealth();
+    loadPreset('medium');
+    renderPortTable();
+});
+
+// ── HEALTH CHECK (real-time polling every 10s) ─────────────────────
+async function checkHealth() {
+    const pill = document.getElementById('statusPill');
+    const dot  = document.getElementById('statusDot');
+    const txt  = document.getElementById('statusText');
+    try {
+        const r = await fetch(`${API}/`, { cache:'no-store' });
+        if (!r.ok) throw new Error();
+        const d = await r.json();
+        dot.classList.add('pulse');
+        pill.classList.add('online');
+        txt.textContent = `API Online · v${d.version || '1.0'}`;
+        const banner = document.getElementById('fallbackBanner');
+        banner.style.display = d.model_loaded === false ? 'flex' : 'none';
+
+        // Fetch model info for transparency banner
+        const rm = await fetch(`${API}/model-info`, { cache:'no-store' });
+        if (rm.ok) {
+            const m = await rm.json();
+            const mName = document.getElementById('mini_model_name');
+            const mVer = document.getElementById('mini_model_version');
+            if(mName) mName.innerHTML = m.model_loaded ? `<span style="color:var(--green)">${m.model_name}</span>` : `<span style="color:var(--amber)">Rule-Based Fallback</span>`;
+            if(mVer) mVer.textContent = m.model_version || 'N/A';
+        }
+    } catch {
+        dot.classList.remove('pulse');
+        pill.classList.remove('online');
+        txt.textContent = 'API Offline';
+    }
+    setTimeout(checkHealth, 10000); // re-check every 10 seconds
+}
+
+// ── TAB SWITCHER ────────────────────────────────────────────────────
+function switchTab(id, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('ws-' + id).classList.add('active');
+    if (id === 'transparency') loadTransparency();
+}
+
+// ── PRESETS ─────────────────────────────────────────────────────────
+function loadPreset(key) {
+    const p = PRESETS[key]; if (!p) return;
+    document.getElementById('f_biz_name').value = p.business_name;
+    document.getElementById('f_biz_id').value   = p.business_id;
+    document.getElementById('f_revenue').value  = p.monthly_revenue;
+    document.getElementById('f_expenses').value = p.monthly_expenses;
+    document.getElementById('f_cash').value     = p.cash_reserve;
+    document.getElementById('f_invoices').value = p.pending_invoices;
+    document.getElementById('f_delay').value    = p.avg_payment_delay;
+    document.getElementById('f_payroll').value  = p.payroll_ratio;
+    document.getElementById('f_vendor').value   = p.vendor_due_amount;
+}
+
+// ── PREDICTOR ───────────────────────────────────────────────────────
+async function runPrediction(e) {
+    e.preventDefault();
+    const btn     = document.getElementById('btnPredict');
+    const spinner = document.getElementById('predictSpinner');
+    const txt     = document.getElementById('predictBtnTxt');
+
+    btn.disabled = true;
+    spinner.style.display = 'block';
+    txt.style.display = 'none';
+
+    const payload = {
+        business_name:     document.getElementById('f_biz_name').value || null,
+        business_id:       document.getElementById('f_biz_id').value   || null,
+        monthly_revenue:   parseFloat(document.getElementById('f_revenue').value),
+        monthly_expenses:  parseFloat(document.getElementById('f_expenses').value),
+        cash_reserve:      parseFloat(document.getElementById('f_cash').value),
+        pending_invoices:  parseFloat(document.getElementById('f_invoices').value),
+        avg_payment_delay: parseFloat(document.getElementById('f_delay').value),
+        payroll_ratio:     parseFloat(document.getElementById('f_payroll').value),
+        vendor_due_amount: parseFloat(document.getElementById('f_vendor').value),
+    };
+
+    try {
+        const res = await fetch(`${API}/predict-risk`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            showResults(data);
+        } else {
+            const err = await res.json();
+            const msg = err.error || err.detail || 'Unknown error';
+            showError(`Prediction failed: ${msg}`);
+        }
+    } catch (err) {
+        showError('Network error — is the API server running?');
+    } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        txt.style.display = 'inline';
+    }
+}
+
+function showError(msg) {
+    alert(msg);
+}
+
+function showResults(d) {
+    // Switch visibility
+    document.getElementById('rPlaceholder').style.display = 'none';
+    const rActual = document.getElementById('rActual');
+    rActual.style.display = 'flex';
+
+    // Business info
+    document.getElementById('r_bizName').textContent = d.business_name || 'SME Business';
+    document.getElementById('r_bizId').textContent   = d.business_id   || '—';
+
+    // Risk badge
+    const badge = document.getElementById('r_badge');
+    const lvl   = (d.risk_level || 'Unknown').toLowerCase();
+    badge.className = `risk-badge ${lvl}`;
+    badge.textContent = `${d.risk_level} Risk`;
+
+    // Score
+    const score = parseFloat(d.risk_score) || 0;
+    document.getElementById('r_score').textContent = score.toFixed(1);
+
+    // Donut arc
+    const arc  = document.getElementById('donutArc');
+    const circ = 2 * Math.PI * 42; // 264
+    const drawn = (score / 100) * circ;
+    // Small delay so transition fires
+    setTimeout(() => {
+        arc.style.strokeDasharray = `${drawn} ${circ}`;
+        arc.style.stroke = lvl === 'low' ? '#10b981' : lvl === 'medium' ? '#f59e0b' : '#ef4444';
+    }, 50);
+
+    // Confidence
+    document.getElementById('r_conf').textContent = `${((d.confidence||0)*100).toFixed(0)}%`;
+
+    // Probability bars
+    const cp = d.class_probabilities || {};
+    const low  = ((cp.Low   || 0)*100);
+    const med  = ((cp.Medium|| 0)*100);
+    const high = ((cp.High  || 0)*100);
+    document.getElementById('pv_low').textContent  = `${low.toFixed(0)}%`;
+    document.getElementById('pv_med').textContent  = `${med.toFixed(0)}%`;
+    document.getElementById('pv_high').textContent = `${high.toFixed(0)}%`;
+    setTimeout(() => {
+        document.getElementById('pb_low').style.width  = `${low}%`;
+        document.getElementById('pb_med').style.width  = `${med}%`;
+        document.getElementById('pb_high').style.width = `${high}%`;
+    }, 100);
+
+    // Insights
+    const insightEl = document.getElementById('r_insights');
+    insightEl.innerHTML = '';
+    (d.insights || []).forEach(item => {
+        const icons = {
+            Healthy: `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`,
+            Warning: `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>`,
+            Critical:`<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>`,
+        };
+        const row = document.createElement('div');
+        row.className = `insight-row ${item.status}`;
+        row.innerHTML = `
+            <div class="insight-icon">${icons[item.status] || icons.Warning}</div>
+            <div>
+                <div class="insight-title">${item.metric} — ${item.status}</div>
+                <div class="insight-msg">${item.message}</div>
+            </div>`;
+        insightEl.appendChild(row);
+    });
+
+    // Recommendation
+    document.getElementById('r_reco').textContent = d.recommendation || '—';
+
+    // Scroll into view
+    setTimeout(() => {
+        rActual.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }, 150);
+}
+
+// ── PORTFOLIO ────────────────────────────────────────────────────────
+function renderPortTable() {
+    const tbody = document.getElementById('portBody');
+    tbody.innerHTML = '';
+    portData.forEach((row, i) => {
+        const lvl = (row.risk_level || '-').toLowerCase();
+        const badgeStyle = lvl === 'low'
+            ? 'background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)'
+            : lvl === 'medium'
+            ? 'background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)'
+            : lvl === 'high'
+            ? 'background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)'
+            : 'background:rgba(255,255,255,.05);color:var(--dim)';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input class="editable" value="${esc(row.business_name)}" onchange="portData[${i}].business_name=this.value"></td>
+            <td><input class="editable" type="number" value="${row.monthly_revenue}"   onchange="portData[${i}].monthly_revenue=+this.value"></td>
+            <td><input class="editable" type="number" value="${row.monthly_expenses}"  onchange="portData[${i}].monthly_expenses=+this.value"></td>
+            <td><input class="editable" type="number" value="${row.cash_reserve}"      onchange="portData[${i}].cash_reserve=+this.value"></td>
+            <td><input class="editable" type="number" value="${row.pending_invoices}"  onchange="portData[${i}].pending_invoices=+this.value"></td>
+            <td><input class="editable" type="number" value="${row.avg_payment_delay}" onchange="portData[${i}].avg_payment_delay=+this.value"></td>
+            <td><input class="editable" type="number" step="0.01" value="${row.payroll_ratio}" onchange="portData[${i}].payroll_ratio=+this.value"></td>
+            <td><input class="editable" type="number" value="${row.vendor_due_amount}" onchange="portData[${i}].vendor_due_amount=+this.value"></td>
+            <td><span style="padding:.2rem .5rem;border-radius:12px;font-size:.75rem;font-weight:600;${badgeStyle}">${row.risk_level}</span></td>
+            <td><button class="btn-table" onclick="drillDown(${i})">Load</button></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function esc(s) { return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addPortfolioRow() {
+    portData.push({ business_name:`New Company ${portData.length+1}`,
+        monthly_revenue:100000, monthly_expenses:80000, cash_reserve:30000,
+        pending_invoices:10000, avg_payment_delay:15, payroll_ratio:0.30,
+        vendor_due_amount:12000, risk_level:"-" });
+    renderPortTable();
+}
+
+async function runPortfolioScan() {
+    const btn = document.getElementById('btnScan');
+    const sp  = document.getElementById('scanSpinner');
+    const txt = document.getElementById('scanBtnTxt');
+    btn.disabled = true; sp.style.display = 'block'; txt.style.display = 'none';
+
+    const payload = { businesses: portData.map(b => ({
+        business_name:b.business_name, monthly_revenue:b.monthly_revenue,
+        pending_invoices:b.pending_invoices, avg_payment_delay:b.avg_payment_delay,
+        monthly_expenses:b.monthly_expenses, payroll_ratio:b.payroll_ratio,
+        cash_reserve:b.cash_reserve, vendor_due_amount:b.vendor_due_amount
+    })) };
+
+    try {
+        const r = await fetch(`${API}/batch-predict`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (r.ok) {
+            const result = await r.json();
+            result.results.forEach(res => { portData[res.index].risk_level = res.risk_level; });
+            renderPortTable();
+            const total = result.total;
+            const low   = result.summary.Low    || 0;
+            const med   = result.summary.Medium  || 0;
+            const high  = result.summary.High    || 0;
+            document.getElementById('p_total').textContent = total;
+            document.getElementById('p_low').textContent   = low;
+            document.getElementById('p_med').textContent   = med;
+            document.getElementById('p_high').textContent  = high;
+            const lp = total ? (low/total*100)  : 0;
+            const mp = total ? (med/total*100)   : 0;
+            const hp = total ? (high/total*100)  : 0;
+            setTimeout(() => {
+                document.getElementById('seg_low').style.width  = `${lp}%`;
+                document.getElementById('seg_med').style.width  = `${mp}%`;
+                document.getElementById('seg_high').style.width = `${hp}%`;
+            }, 50);
+            document.getElementById('sl_low').textContent  = lp.toFixed(0);
+            document.getElementById('sl_med').textContent  = mp.toFixed(0);
+            document.getElementById('sl_high').textContent = hp.toFixed(0);
+        } else {
+            alert('Portfolio scan error. Check the API.');
+        }
+    } catch { alert('Network error during portfolio scan.'); }
+    finally {
+        btn.disabled = false; sp.style.display = 'none'; txt.style.display = 'inline';
+    }
+}
+
+function drillDown(i) {
+    const d = portData[i];
+    document.getElementById('f_biz_name').value = d.business_name;
+    document.getElementById('f_biz_id').value   = `BIZ-PORT-${i+1}`;
+    document.getElementById('f_revenue').value  = d.monthly_revenue;
+    document.getElementById('f_expenses').value = d.monthly_expenses;
+    document.getElementById('f_cash').value     = d.cash_reserve;
+    document.getElementById('f_invoices').value = d.pending_invoices;
+    document.getElementById('f_delay').value    = d.avg_payment_delay;
+    document.getElementById('f_payroll').value  = d.payroll_ratio;
+    document.getElementById('f_vendor').value   = d.vendor_due_amount;
+    // Switch to predictor tab
+    const tabBtns = document.querySelectorAll('.tab');
+    switchTab('predictor', tabBtns[0]);
+}
+
+// ── ML TRANSPARENCY ──────────────────────────────────────────────────
+let transparencyLoaded = false;
+async function loadTransparency() {
+    if (transparencyLoaded) return;
+    try {
+        const r = await fetch(`${API}/model-info`);
+        if (!r.ok) throw new Error();
+        const d = await r.json();
+
+        // Model identity
+        document.getElementById('t_status').innerHTML  = d.model_loaded
+            ? `<span style="color:var(--green);font-weight:700">● Loaded (ML Mode)</span>`
+            : `<span style="color:var(--amber);font-weight:700">● Fallback (Rule-Based)</span>`;
+        document.getElementById('t_name').textContent    = d.model_name;
+        document.getElementById('t_version').textContent = d.model_version;
+        document.getElementById('t_acc').textContent     = `${((d.accuracy||0)*100).toFixed(2)}%`;
+        document.getElementById('t_f1').textContent      = `${((d.f1_score||0)*100).toFixed(2)}%`;
+        document.getElementById('t_date').textContent    = new Date(d.trained_at).toLocaleString();
+        document.getElementById('t_mlflow').textContent  = d.mlflow_run_id || 'None (Fallback Mode)';
+
+        // Hyperparameters
+        const hp = d.model_hyperparams || {};
+        const hpEl = document.getElementById('t_hyperparams');
+        hpEl.innerHTML = Object.keys(hp).length
+            ? Object.entries(hp).map(([k,v]) =>
+                `<span class="hp-chip"><span class="hp-key">${k}=</span>${v}</span>`).join('')
+            : '<span style="color:var(--dim);font-size:.8rem;">Not available (fallback mode)</span>';
+
+        // Feature tags
+        const featsEl = document.getElementById('t_features');
+        featsEl.innerHTML = (d.feature_columns||[]).map(f =>
+            `<span class="feat-tag">${f}</span>`).join('');
+
+        // Feature importances
+        const fi = d.feature_importances || {};
+        const fiEl = document.getElementById('t_fiList');
+        fiEl.innerHTML = '';
+        if (Object.keys(fi).length) {
+            const sorted = Object.entries(fi).sort((a,b) => b[1]-a[1]);
+            sorted.forEach(([name, val]) => {
+                const pct = (val * 100).toFixed(1);
+                const bar = document.createElement('div');
+                bar.className = 'fi-row';
+                bar.innerHTML = `
+                    <div class="fi-header">
+                        <span class="fi-name">${name}</span>
+                        <span class="fi-pct">${pct}%</span>
+                    </div>
+                    <div class="fi-track"><div class="fi-fill" data-w="${val*100}"></div></div>`;
+                fiEl.appendChild(bar);
+            });
+            // Trigger animations
+            setTimeout(() => {
+                fiEl.querySelectorAll('.fi-fill').forEach(el => {
+                    el.style.width = `${el.dataset.w}%`;
+                });
+            }, 100);
+        } else {
+            fiEl.innerHTML = '<span style="color:var(--dim);font-size:.8rem;">Not available</span>';
+        }
+
+        // Training pipeline
+        const pipe = d.training_pipeline || [];
+        const pipeEl = document.getElementById('t_pipeline');
+        pipeEl.innerHTML = pipe.map(s => `
+            <div class="pipeline-step">
+                <div class="step-num">${s.step.charAt(0)}</div>
+                <div>
+                    <div class="step-label">${s.step}</div>
+                    <div class="step-detail">${s.detail}</div>
+                </div>
+            </div>`).join('');
+
+        // AutoML comparison table
+        const cmp = d.automl_comparison || [];
+        const tbody = document.getElementById('t_cmpBody');
+        tbody.innerHTML = '';
+        if (cmp.length) {
+            cmp.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                if (idx === 0) tr.className = 'best-row';
+                const accPct = row.Accuracy !== undefined ? `${(row.Accuracy*100).toFixed(2)}%` : '—';
+                const f1Pct  = row.F1       !== undefined ? `${(row.F1*100).toFixed(2)}%`       : '—';
+                const prPct  = (row['Prec.'] || row.Precision) !== undefined
+                    ? `${((row['Prec.']||row.Precision)*100).toFixed(2)}%` : '—';
+                const rcPct  = row.Recall   !== undefined ? `${(row.Recall*100).toFixed(2)}%`   : '—';
+                const tt     = row['TT (Sec)'] !== undefined ? `${row['TT (Sec)']}s`             : '—';
+                tr.innerHTML = `
+                    <td style="max-width:160px;word-break:break-word">${idx===0?'🏆 ':''}<strong>${row.Model||'—'}</strong></td>
+                    <td class="cmp-acc">${accPct}</td>
+                    <td>${f1Pct}</td><td>${prPct}</td><td>${rcPct}</td><td>${tt}</td>`;
+                tbody.appendChild(tr);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:1.5rem;">Run <code>.\run.ps1 automl</code> to generate comparison data.</td></tr>';
+        }
+
+        transparencyLoaded = true;
+    } catch (e) {
+        console.error('Transparency load error:', e);
+    }
+}
+</script>
+</body>
+</html>

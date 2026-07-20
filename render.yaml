@@ -1,0 +1,29 @@
+# render.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# FlowGuard AI – Render Deployment Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: flowguard-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+
+    # Auto-deploy on every push to main branch
+    autoDeploy: true
+
+    # Health check using your existing GET / endpoint
+    healthCheckPath: /
+
+    # Environment variables
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONUTF8
+        value: "1"
+      - key: PORT
+        value: "8000"
+
+    # Free instance type (Render free tier)
+    plan: free

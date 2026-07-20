@@ -17,6 +17,7 @@ import os
 import pickle
 import datetime
 import numpy as np
+import csv
 from typing import Dict, List, Tuple
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ MODELS_DIR   = os.path.join(BASE_DIR, "models")
 MODEL_PATH   = os.path.join(MODELS_DIR, "saved_model.pkl")
 SCALER_PATH  = os.path.join(MODELS_DIR, "scaler.pkl")
 ENCODER_PATH = os.path.join(MODELS_DIR, "label_encoder.pkl")
+COMPARISON_CSV = os.path.join(MODELS_DIR, "model_comparison.csv")
 
 FEATURE_COLS = [
     "monthly_revenue",
@@ -50,6 +52,9 @@ _scaler  = None
 _encoder = None
 _model_loaded = False
 _model_meta: Dict = {}
+_feature_importances: Dict = {}
+_model_comparison: List = []
+_model_hyperparams: Dict = {}
 
 
 def load_model() -> bool:
@@ -59,6 +64,7 @@ def load_model() -> bool:
     Called once when FastAPI app starts.
     """
     global _model, _scaler, _encoder, _model_loaded, _model_meta
+    global _feature_importances, _model_comparison, _model_hyperparams
 
     try:
         with open(MODEL_PATH, "rb") as f:
@@ -87,16 +93,54 @@ def load_model() -> bool:
                 "mlflow_run_id":  None,
             }
 
-        print(f"✅  Model loaded: {_model_meta.get('model_name', 'Unknown')}")
+        # Extract feature importances from the RF model
+        if hasattr(_model, 'feature_importances_'):
+            _feature_importances = {
+                col: round(float(imp), 4)
+                for col, imp in zip(FEATURE_COLS, _model.feature_importances_)
+            }
+        elif hasattr(_model, 'steps'):  # Pipeline
+            last_step = _model.steps[-1][1]
+            if hasattr(last_step, 'feature_importances_'):
+                _feature_importances = {
+                    col: round(float(imp), 4)
+                    for col, imp in zip(FEATURE_COLS, last_step.feature_importances_)
+                }
+
+        # Extract hyperparameters
+        if hasattr(_model, 'get_params'):
+            raw_params = _model.get_params()
+            # Only keep the most interpretable top-level params
+            keep_keys = {'n_estimators', 'max_depth', 'min_samples_split',
+                         'min_samples_leaf', 'random_state', 'class_weight',
+                         'learning_rate', 'max_iter', 'n_neighbors', 'C', 'kernel'}
+            _model_hyperparams = {
+                k: str(v) for k, v in raw_params.items()
+                if k in keep_keys and v is not None
+            }
+
+        # Load model comparison CSV from AutoML
+        if os.path.exists(COMPARISON_CSV):
+            with open(COMPARISON_CSV, newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                _model_comparison = [
+                    {
+                        k: (round(float(v), 4) if v.replace('.', '', 1).isdigit() else v)
+                        for k, v in row.items() if v.strip() != ''
+                    }
+                    for row in reader
+                ]
+
+        print(f"[OK] Model loaded: {_model_meta.get('model_name', 'Unknown')}")
         return True
 
     except FileNotFoundError:
-        print("⚠️   Model files not found. Using RULE-BASED FALLBACK mode.")
+        print("[WARN] Model files not found. Using RULE-BASED FALLBACK mode.")
         _model_loaded = False
         return False
 
     except Exception as e:
-        print(f"❌  Error loading model: {e}")
+        print(f"[ERROR] Error loading model: {e}")
         _model_loaded = False
         return False
 
@@ -371,14 +415,26 @@ def predict(features: dict) -> dict:
 
 
 def get_model_info() -> dict:
-    """Return metadata about the currently loaded model."""
+    """Return metadata about the currently loaded model, including transparency data."""
     return {
-        "model_name":      _model_meta.get("model_name", "Rule-Based Fallback") if _model_loaded else "Rule-Based Fallback",
-        "model_version":   _model_meta.get("model_version", "N/A"),
-        "accuracy":        _model_meta.get("accuracy", 0.0),
-        "f1_score":        _model_meta.get("f1_score", 0.0),
-        "feature_columns": FEATURE_COLS,
-        "target_classes":  ["Low", "Medium", "High"],
-        "trained_at":      _model_meta.get("trained_at", "Not trained yet"),
-        "mlflow_run_id":   _model_meta.get("mlflow_run_id", None),
+        "model_name":           _model_meta.get("model_name", "Rule-Based Fallback") if _model_loaded else "Rule-Based Fallback",
+        "model_version":        _model_meta.get("model_version", "N/A"),
+        "accuracy":             _model_meta.get("accuracy", 0.0),
+        "f1_score":             _model_meta.get("f1_score", 0.0),
+        "feature_columns":      FEATURE_COLS,
+        "target_classes":       ["Low", "Medium", "High"],
+        "trained_at":           _model_meta.get("trained_at", "Not trained yet"),
+        "mlflow_run_id":        _model_meta.get("mlflow_run_id", None),
+        # NEW: Transparency / explainability data
+        "feature_importances":  _feature_importances,
+        "model_hyperparams":    _model_hyperparams,
+        "automl_comparison":    _model_comparison,
+        "model_loaded":         _model_loaded,
+        "training_pipeline":    [
+            {"step": "1. Dataset Generation", "detail": "3,000 synthetic SME records generated with ml/generate_dataset.py"},
+            {"step": "2. Baseline Training", "detail": "RandomForestClassifier trained via ml/train.py with MLflow tracking (experiment: FlowGuard-AI-Baseline)"},
+            {"step": "3. AutoML Comparison", "detail": "PyCaret compared 15+ algorithms via ml/automl.py (experiment: FlowGuard-AI-AutoML)"},
+            {"step": "4. Model Selection", "detail": "Best model selected based on cross-validated Accuracy; final model retrained on 100% of data"},
+            {"step": "5. Artifacts Saved", "detail": "saved_model.pkl, scaler.pkl, label_encoder.pkl, model_meta.pkl written to models/"},
+        ],
     }
