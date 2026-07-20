@@ -18,20 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Python dependencies ───────────────────────────────────────────────────────
-# Copy requirements first for Docker layer caching
-COPY requirements.txt .
-
-# Install only the core dependencies needed for serving
-# (skip pycaret/mlflow for prod - they're heavy; model is already trained)
+# Copy only the lean prod requirements for Docker layer caching
+COPY requirements-prod.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-        fastapi>=0.104.0 \
-        "uvicorn[standard]>=0.24.0" \
-        pydantic>=2.0.0 \
-        scikit-learn>=1.3.0 \
-        numpy>=1.24.0 \
-        pandas>=2.0.0 \
-        python-multipart>=0.0.6
+    pip install --no-cache-dir -r requirements-prod.txt
 
 # ── Copy application code ─────────────────────────────────────────────────────
 COPY app/ ./app/
