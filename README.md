@@ -64,3 +64,29 @@ python save_bento_model.py
 # Build the Bento
 bentoml build
 ```
+
+## Deployment Quickstart (Linux/Mac)
+
+1. Copy environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+2. Build artifacts for deployment:
+   ```bash
+   bash scripts/deploy_build.sh
+   ```
+3. Run services (in separate terminals):
+   ```bash
+   # Flask UI
+   cd flask_app && python -m flask run --port=${FLASK_PORT:-5000}
+
+   # FastAPI API
+   cd fastapi_app && python -m uvicorn main:app --port=${FASTAPI_PORT:-8000} --host 0.0.0.0
+
+   # Bento service
+   bentoml serve service:DiabetesService --port ${BENTO_PORT:-3000}
+   ```
+4. Run smoke tests:
+   ```bash
+   bash scripts/smoke_test.sh
+   ```

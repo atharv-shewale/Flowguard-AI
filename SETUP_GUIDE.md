@@ -82,3 +82,22 @@ If you prefer running the steps manually (or are on Linux/Mac), execute the foll
 ## 5. Usage
 - Access the **Flask UI** at: `http://127.0.0.1:5000`
 - Access the **FastAPI Swagger UI** at: `http://127.0.0.1:8000/docs`
+
+## 6. Deployment Checklist
+
+1. Copy env template and set DB/app ports:
+   ```bash
+   cp .env.example .env
+   ```
+2. Build and package model artifacts:
+   ```bash
+   bash scripts/deploy_build.sh
+   ```
+3. Deploy/run services on your target host:
+   - Flask UI: `python -m flask run --port=${FLASK_PORT:-5000}`
+   - FastAPI API: `python -m uvicorn main:app --port=${FASTAPI_PORT:-8000} --host 0.0.0.0`
+   - Bento service: `bentoml serve service:DiabetesService --port ${BENTO_PORT:-3000}`
+4. Run post-deploy smoke tests:
+   ```bash
+   bash scripts/smoke_test.sh
+   ```
