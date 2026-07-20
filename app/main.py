@@ -160,8 +160,9 @@ async def serve_ui():
 
 
 # ── GET / ─────────────────────────────────────────────────────────────────────
-@app.get(
+@app.api_route(
     "/",
+    methods=["GET", "HEAD"],
     response_model=HealthResponse,
     summary="Health Check",
     tags=["System"],
